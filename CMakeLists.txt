@@ -16,7 +16,7 @@ include_directories(include)
 file(GLOB ASM_SRC "asm/*.asm")
 
 # Add executable
-add_executable(ACTS src/main.cpp ${ASM_SRC})
+add_executable(acts src/main.cpp ${ASM_SRC})
 
 # NASM support (if using NASM)
 set_property(SOURCE ${ASM_SRC} PROPERTY LANGUAGE ASM_NASM)
