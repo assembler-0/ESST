@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <functional>
 #include <thread>
-#include <vector>
 #include <chrono>
 class acts {
 public:
@@ -14,8 +13,8 @@ public:
 		std::string op_mode;
 		std::unordered_map<std::string, std::function<void()>> command_map = {
 			{"exit", [this]() { running = false; }},
-			{"mode", [this]() { menu(); }},
-			{"avx",  [this]() { avx_init(); }}
+			{"menu", [this]() { intermediate(val_intermediate[0]); }},
+			{"avx",  [this]() { intermediate(val_intermediate[1]); }}
 		};
 
 		std::cout << "Welcome to ACTS version " << APP_VERSION << std::endl;
@@ -28,27 +27,36 @@ public:
 				std::cout << "Exiting..." << std::endl;
 				return;
 			}
-
-			auto it = command_map.find(op_mode);
-			if (it != command_map.end()) {
-				it->second();  //Call the function
+			if (auto it = command_map.find(op_mode); it != command_map.end()) {
+				it->second();
 			}
 		}
 	}
 private:
 	bool running = true;
+	char val_intermediate[8] = {'m', 'a', 's'};
+	unsigned int threads = std::thread::hardware_concurrency();
+	std::vector<std::thread> thread_pool;
 	static constexpr auto APP_VERSION = "1.0";
-
-	void menu(){
+	static void intermediate(char func){
+		switch (func){
+			case 'm': {
+				break;
+			}
+			default:{
+				break;
+			}
+		}
+	}
+	static void menu(){
 		std::cout << "...\n";
 	}
-	void avx_init(){
+	static void avx_init(){
 		std::cout << "AVX test!\n";
 		int upper_lm = 0;
 		int lower_lm = 0;
 		static constexpr int size = 8;
 		unsigned int iterations = 0;
-		unsigned int loop_start = 0;
 		pcg32 gen(42u, 54u);
 		std::cout << "Iterations?: ";
 		std::cin >> iterations;
@@ -59,23 +67,22 @@ private:
 		alignas(32) float n1[size];
 		alignas(32) float n2[size];
 		alignas(32) float out[size];
-		std::uniform_int_distribution gen_int_lm(lower_lm, upper_lm);
+		std::uniform_int_distribution<float> gen_float_lm(lower_lm, upper_lm);
 		while (iterations > 0){
 			for (int i = 0; i < size; ++i){
-				n1[i] = gen_int_lm(gen);
-				n2[i] = gen_int_lm(gen);
+				n1[i] = gen_float_lm(gen);
+				n2[i] = gen_float_lm(gen);
 			}
 			avx(n1, n2, out);
 			iterations -= 1;
 		}
 		std::cout << "Result: ";
-		for (int i : out){std::cout << i << " ";}
+		for (const float i : out){std::cout << i << " ";}
 		std::cout << std::endl;
 	}
 };
 int main(){
 	acts test;
 		test.init();
-
   return 0;
 }
