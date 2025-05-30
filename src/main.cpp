@@ -41,6 +41,12 @@ private:
 	static void intermediate(char func){
 		switch (func){
 			case 'm': {
+				menu();
+				break;
+			}
+			case 'a': {
+				for (int i = 0; i < threads; ++i) thread_pool.emplace_back(avx_init, i);
+				for (auto& thread : thread_pool) thread.join();
 				break;
 			}
 			default:{
