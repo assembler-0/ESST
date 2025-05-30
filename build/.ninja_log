@@ -1,0 +1,4 @@
+# ninja log v6
+2	9	1748574833961116851	CMakeFiles/acts.dir/asm/core.asm.o	c9556907fc593708
+1	211	1748574833960548877	CMakeFiles/acts.dir/src/main.cpp.o	91c7168a96c9fc58
+211	253	1748574834169553079	acts	a330ee3a0b55fe09
