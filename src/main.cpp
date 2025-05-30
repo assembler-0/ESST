@@ -4,7 +4,7 @@
 void sse_init(){
 	int upper_lm = 0;
 	int lower_lm = 0;
-	const int size = 8;
+	constexpr int size = 8;
 	std::cout << "Please enter upper limit: ";
 	std::cin >> upper_lm;
 	std::cout << "Please enter lower limit: ";
@@ -18,9 +18,8 @@ void sse_init(){
 	}
 	sse(n1, n2, out);
 	std::cout << "Result: ";
-	for (float f : out) std::cout << f << " ";
+	for (const float f : out) std::cout << f << " ";
 	std::cout << std::endl;
-	return;
 }
 int main(){
   sse_init();
