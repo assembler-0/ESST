@@ -1,6 +1,6 @@
-global sse
+global avx
 section .text
-sse:
+avx:
         vmovaps ymm0, [rdi]
         vmovaps ymm1, [rsi]
         vmulps  ymm0, ymm1
