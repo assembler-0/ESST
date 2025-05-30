@@ -2,19 +2,51 @@
 #include "pcg_random.hpp"
 #include <iostream>
 #include <random>
+#include <string>
+#include <unordered_map>
+#include <functional>
+#include <thread>
+#include <vector>
+#include <chrono>
 class acts {
 public:
-	void init(){
+	void init() {
+		std::string op_mode;
+		std::unordered_map<std::string, std::function<void()>> command_map = {
+			{"exit", [this]() { running = false; }},
+			{"mode", [this]() { menu(); }},
+			{"avx",  [this]() { avx_init(); }}
+		};
 
+		std::cout << "Welcome to ACTS version " << APP_VERSION << std::endl;
+
+		while (running) {
+			std::cout << "[ACTS] >> ";
+			std::getline(std::cin, op_mode);
+
+			if (std::cin.eof()) {
+				std::cout << "Exiting..." << std::endl;
+				return;
+			}
+
+			auto it = command_map.find(op_mode);
+			if (it != command_map.end()) {
+				it->second();  //Call the function
+			}
+		}
 	}
 private:
-	char menu(){
+	bool running = true;
+	static constexpr auto APP_VERSION = "1.0";
 
+	void menu(){
+		std::cout << "...\n";
 	}
-	void sse_init(){
+	void avx_init(){
+		std::cout << "AVX test!\n";
 		int upper_lm = 0;
 		int lower_lm = 0;
-		constexpr int size = 8;
+		static constexpr int size = 8;
 		unsigned int iterations = 0;
 		unsigned int loop_start = 0;
 		pcg32 gen(42u, 54u);
@@ -37,13 +69,13 @@ private:
 			iterations -= 1;
 		}
 		std::cout << "Result: ";
-		for (const float f : out) std::cout << f << " ";
+		for (int i : out){std::cout << i << " ";}
 		std::cout << std::endl;
 	}
 };
 int main(){
-  acts test;
-	test.init();
+	acts test;
+		test.init();
 
   return 0;
 }
