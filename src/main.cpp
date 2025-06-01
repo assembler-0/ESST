@@ -51,6 +51,15 @@ private:
     void init3np1(){
         unsigned long upper_lm = 0;
         unsigned long lower_lm = 0;
+        unsigned long iterations = 0;
+        std::cout << "Iterations?: ";
+        std::cin >> iterations;
+        if (std::cin.fail() || iterations == 0) {
+            std::cout << "Invalid iterations. Please enter a positive integer." << std::endl;
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            return;
+        }
         std::cout << "Upper limit?: ";
         std::cin >> upper_lm;
         if (std::cin.fail()) {
@@ -73,24 +82,26 @@ private:
         }
         std::vector<std::thread> current_cp_threads;
         for (unsigned int i = 0; i < num_threads; ++i) {
-            current_cp_threads.emplace_back(p3np1, upper_lm, lower_lm, i);
+            current_cp_threads.emplace_back(p3np1, iterations, upper_lm, lower_lm, i);
         }
         for (auto& thread : current_cp_threads) {
             thread.join();
         }
     }
-    volatile static void p3np1(const long upper_lm, const long lower_lm, const int thread_id){
+    volatile static void p3np1(const long iterations, const long upper_lm, const long lower_lm, const int thread_id){
         const auto startTime = std::chrono::steady_clock::now();
         pcg32 gen(42u + thread_id, 54u + thread_id);
         std::uniform_int_distribution<unsigned long> gen_long_lm(lower_lm, upper_lm);
-        const unsigned long number = gen_long_lm(gen);
-        unsigned int steps = 0;
-        p3np1E(number, steps);
-        std::cout << "Steps taken for thread " << thread_id << " is: " << steps << ". With number: " << number <<std::endl;
+        unsigned long total_steps = 0;
+        for (int i = 0; i < iterations; ++i) {
+            unsigned long steps = 0;
+            p3np1E(gen_long_lm(gen), &steps);
+            total_steps += steps;
+        }
         const auto endTime = std::chrono::steady_clock::now();
         const auto duration = endTime - startTime;
         const long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        std::cout << "Time taken: " << milliseconds << " ms" << std::endl;
+        std::cout << "Time taken: " << milliseconds << " ms" << ". For thread " << thread_id << std::endl;
     }
     void initAvx() {
         unsigned long iterations = 0;

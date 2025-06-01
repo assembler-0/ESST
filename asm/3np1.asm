@@ -1,27 +1,22 @@
 global p3np1E
 section .text
 ; rdi = input
-; rsi = out
+; rsi = steps pointer
 p3np1E:
-        cmp rdi, 1
-        je .loopEosAt1
-        jne .start
- .start:
-        test rdi, 1
-        jnz .isEven
-        jz .isOdd
- .isOdd:
-        imul rdi, 3
-        add rdi, 1
-        add rsi, 1
-        jmp .checkLoopCondition
- .isEven:
-        shr rdi, 1
-        add rsi,1
-        jmp .checkLoopCondition
- .checkLoopCondition:
-        cmp rdi, 1
-        jne .start
-        je .loopEosAt1
- .loopEosAt1:
-        ret
+     cmp rdi, 1
+     je .done
+.loop:
+     test rdi, 1
+     jnz .odd
+.even:
+     shr rdi, 1
+     inc qword [rsi]
+     jmp .check
+.odd:
+     lea rdi, [rdi*2 + rdi + 1]
+     inc qword [rsi]
+.check:
+     cmp rdi, 1
+     jne .loop
+.done:
+     ret
