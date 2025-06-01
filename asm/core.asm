@@ -1,4 +1,5 @@
 global avx
+global p3np1E
 section .text
 avx:
         vmovaps ymm0, [rdi]
@@ -8,3 +9,4 @@ avx:
         vfmsubadd132ps ymm0, ymm1, ymm2
         vmovaps [rcx], ymm0
         ret
+p3np1E:
