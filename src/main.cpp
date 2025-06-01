@@ -140,7 +140,7 @@ private:
         const auto start = std::chrono::high_resolution_clock::now();
 
         for (int i = 0; i < num_threads; ++i) {
-            constexpr long nuke_iterations = 10000000;
+            const long nuke_iterations = num_threads * 1000000000;
             threads.emplace_back([=]() { avxWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
         }
