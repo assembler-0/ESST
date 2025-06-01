@@ -1,22 +1,33 @@
 global p3np1E
 section .text
-; rdi = input
-; rsi = steps pointer
 p3np1E:
-     cmp rdi, 1
-     je .done
+    xor rcx, rcx
+    mov r8, rdi
+    mov r9, 3
+
 .loop:
-     test rdi, 1
-     jnz .odd
-.even:
-     shr rdi, 1
-     inc qword [rsi]
-     jmp .check
-.odd:
-     lea rdi, [rdi*2 + rdi + 1]
-     inc qword [rsi]
-.check:
-     cmp rdi, 1
-     jne .loop
-.done:
-     ret
+    lea rax, [rdi + 2*rdi + 1]
+    shr rdi, 1
+    cmovc rdi, rax
+    inc rcx
+
+    lea rax, [rdi + 2*rdi + 1]
+    shr rdi, 1
+    cmovc rdi, rax
+    inc rcx
+
+    lea rax, [rdi + 2*rdi + 1]
+    shr rdi, 1
+    cmovc rdi, rax
+    inc rcx
+
+    lea rax, [rdi + 2*rdi + 1]
+    shr rdi, 1
+    cmovc rdi, rax
+    inc rcx
+
+    cmp rdi, 1
+    ja .loop
+
+    mov [rsi], rcx
+    ret

@@ -33,9 +33,7 @@ public:
             if (auto it = command_map.find(op_mode); it != command_map.end()) {
                 it->second();
             }
-            if (op_mode.empty()){} else {
-                std::cout << "Invalid command: " << op_mode << std::endl;
-            }
+            if (op_mode.empty()){}
         }
     }
 
@@ -157,31 +155,38 @@ private:
 
     volatile static void avxWorker(const unsigned long iterations_per_thread, const int lower_lm, const int upper_lm, const int thread_id) {
         const auto startTime = std::chrono::steady_clock::now();
-        std::cout << "AVX test! (Thread " << thread_id << ")\n";
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(thread_id % std::thread::hardware_concurrency(), &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
         pcg32 gen(42u + thread_id, 54u + thread_id);
         std::uniform_real_distribution<float> gen_float_lm(static_cast<float>(lower_lm), static_cast<float>(upper_lm));
 
-        alignas(32) float n1[AVX_ARRAY_SIZE];
-        alignas(32) float n2[AVX_ARRAY_SIZE];
-        alignas(32) float n3[AVX_ARRAY_SIZE];
-        alignas(32) float out[AVX_ARRAY_SIZE]; // Each thread has its own output array
+        constexpr int AVX_BUFFER_SIZE = 32;  // 32 floats = 128 bytes
+        alignas(32) float n1[AVX_BUFFER_SIZE];
+        alignas(32) float n2[AVX_BUFFER_SIZE];
+        alignas(32) float n3[AVX_BUFFER_SIZE];
+        alignas(32) float out[AVX_BUFFER_SIZE];
+
         for (unsigned long iter = 0; iter < iterations_per_thread; ++iter) {
-            for (int i = 0; i < AVX_ARRAY_SIZE; ++i) {
+            for (int i = 0; i < AVX_BUFFER_SIZE; ++i) {
                 n1[i] = gen_float_lm(gen);
                 n2[i] = gen_float_lm(gen);
                 n3[i] = gen_float_lm(gen);
             }
-            avx(n1, n2, n3, out);
+            for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
+                avx(&n1[offset], &n2[offset], &n3[offset], &out[offset]);
+            }
+            volatile float sink = 0;
+            for (int i = 0; i < AVX_BUFFER_SIZE; ++i) {
+                sink += out[i];  // Prevent optimization
+            }
         }
-
-        std::cout << "Thread " << thread_id << " Result: ";
-        for (const float i : out) { std::cout << i << " "; }
-        std::cout << std::endl;
         const auto endTime = std::chrono::steady_clock::now();
         const auto duration = endTime - startTime;
         const long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        std::cout << "Time taken: " << milliseconds << " ms" << std::endl;
+        std::cout << "Time taken: " << milliseconds << " ms" << ". For thread " << thread_id << std::endl;
 
     }
 };
