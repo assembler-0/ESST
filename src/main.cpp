@@ -86,7 +86,7 @@ private:
         const unsigned long number = gen_long_lm(gen);
         unsigned int steps = 0;
         p3np1E(number, steps);
-        std::cout << "Steps taken for thread " << thread_id << " is: " << steps << std::endl;
+        std::cout << "Steps taken for thread " << thread_id << " is: " << steps << ". With number: " << number <<std::endl;
         const auto endTime = std::chrono::steady_clock::now();
         const auto duration = endTime - startTime;
         const long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
