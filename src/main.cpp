@@ -80,7 +80,7 @@ private:
     }
 
     static void showMenu() {
-        std::cout << "\n=== ACTS Nuclear Options ===\n"
+        std::cout << "\n========= ACTS =========\n"
                   << "avx   - AVX/FMA Stress Test\n"
                   << "3np1  - Collatz Conjecture Bruteforce\n"
                   << "nuke  - Combined AVX+Collatz Full System Stress\n"
@@ -140,7 +140,6 @@ private:
         const auto start = std::chrono::high_resolution_clock::now();
 
         for (int i = 0; i < num_threads; ++i) {
-            const long nuke_iterations = num_threads * 1000000000;
             threads.emplace_back([=]() { avxWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
         }
@@ -153,7 +152,7 @@ private:
                   << " ms\n";
     }
 
-    std::tuple<unsigned long, unsigned long, unsigned long> static getInputs(const std::string& test) {
+    std::tuple<unsigned long, unsigned long, unsigned long> getInputs(const std::string& test) {
         unsigned long its = 0, lower = 0, upper = 0;
 
         std::cout << test << " iterations? : ";
@@ -163,7 +162,18 @@ private:
         if (!(std::cin >> lower)) { badInput(); return {0,0,0}; }
 
         std::cout << "Upper limit? : ";
-        if (!(std::cin >> upper) || lower > upper) { badInput(); return {0,0,0}; }
+        // FIXED: Separated input check from range validation
+        if (!(std::cin >> upper)) {
+            badInput();
+            return {0,0,0};
+        }
+
+        // Now check range separately
+        if (lower > upper) {
+            std::cout << "Error: Lower limit cannot be greater than upper limit.\n";
+            badInput();
+            return {0,0,0};
+        }
 
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         return {its, lower, upper};
@@ -191,7 +201,6 @@ private:
         const auto start = std::chrono::high_resolution_clock::now();
 
         for (unsigned long i = 0; i < iterations; ) {
-            // Fix: Ensure both arguments are unsigned long
             const unsigned long batch = std::min(static_cast<unsigned long>(COLLATZ_BATCH_SIZE), iterations - i);
             unsigned long batch_steps = 0;
 
@@ -202,7 +211,7 @@ private:
             }
 
             total_steps += batch_steps;
-            i += batch;  // Move this here to properly track progress
+            i += batch;
         }
 
         auto duration = std::chrono::high_resolution_clock::now() - start;
@@ -222,19 +231,16 @@ private:
         const auto start = std::chrono::high_resolution_clock::now();
 
         for (unsigned long i = 0; i < iterations; ++i) {
-            // Fill buffers with random data
             for (int j = 0; j < AVX_BUFFER_SIZE; ++j) {
                 n1[j] = dist(gen);
                 n2[j] = dist(gen);
                 n3[j] = dist(gen);
             }
 
-            // Process in AVX chunks
             for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
                 avx(n1+offset, n2+offset, n3+offset, out+offset);
             }
 
-            // Prevent optimization
             asm volatile("" : : "r"(out) : "memory");
         }
 
