@@ -8,191 +8,244 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <immintrin.h>
+#include <cpuid.h>
+#include <sched.h>
 
 class acts {
 public:
     void init() {
-        std::string op_mode;
-        std::unordered_map<std::string, std::function<void()>> command_map = {
-            {"exit", [this]() { running = false; }},
-            {"menu", [this]() { this->showMenu(); }},
-            {"avx",  [this]() { this->initAvx(); }},
-            {"3np1",  [this]() { this->init3np1(); }}
-        };
-
-        std::cout << "ACTS version " << APP_VERSION << std::endl;
+        detect_cpu_features();
+        std::cout << "ACTS version " << APP_VERSION << " | CPU: " << cpu_brand << "\n";
+        std::cout << "Features: AVX" << (has_avx ? "+" : "-")
+                  << " | AVX2" << (has_avx2 ? "+" : "-")
+                  << " | FMA" << (has_fma ? "+" : "-") << "\n";
 
         while (running) {
             std::cout << "[ACTS] >> ";
-            std::getline(std::cin, op_mode);
+            if (!std::getline(std::cin, op_mode)) break;
 
-            if (std::cin.eof()) {
-                std::cout << "Exiting..." << std::endl;
-                return;
-            }
             if (auto it = command_map.find(op_mode); it != command_map.end()) {
                 it->second();
             }
-            if (op_mode.empty()){}
+            else if (!op_mode.empty()) {
+                std::cout << "Invalid command\n";
+            }
         }
     }
 
 private:
     bool running = true;
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    static constexpr auto APP_VERSION = "0.1";
-    static constexpr int AVX_ARRAY_SIZE = 8;
+    std::string op_mode;
+    std::string cpu_brand;
+    bool has_avx = false, has_avx2 = false, has_fma = false;
+    const unsigned int num_threads = std::thread::hardware_concurrency();
 
-    void showMenu() { // Non-static
-        std::cout << "...\n";
+    static constexpr auto APP_VERSION = "0.2";
+    static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
+    static constexpr int COLLATZ_BATCH_SIZE = 100000;
+
+    const std::unordered_map<std::string, std::function<void()>> command_map = {
+        {"exit", [this]() { running = false; }},
+        {"menu", [this]() { showMenu(); }},
+        {"avx",  [this]() { initAvx(); }},
+        {"3np1", [this]() { init3np1(); }},
+        {"nuke", [this]() { nuclearOption(); }}
+    };
+
+    void detect_cpu_features() {
+        char brand[0x40] = {0};
+        unsigned int eax, ebx, ecx, edx;
+
+        __get_cpuid(0x80000002, &eax, &ebx, &ecx, &edx);
+        memcpy(brand, &eax, 4); memcpy(brand+4, &ebx, 4);
+        memcpy(brand+8, &ecx, 4); memcpy(brand+12, &edx, 4);
+
+        __get_cpuid(0x80000003, &eax, &ebx, &ecx, &edx);
+        memcpy(brand+16, &eax, 4); memcpy(brand+20, &ebx, 4);
+        memcpy(brand+24, &ecx, 4); memcpy(brand+28, &edx, 4);
+
+        __get_cpuid(0x80000004, &eax, &ebx, &ecx, &edx);
+        memcpy(brand+32, &eax, 4); memcpy(brand+36, &ebx, 4);
+        memcpy(brand+40, &ecx, 4); memcpy(brand+44, &edx, 4);
+
+        cpu_brand = brand;
+
+        __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+        has_avx = ecx & bit_AVX;
+        has_fma = ecx & bit_FMA;
+
+        __get_cpuid(7, &eax, &ebx, &ecx, &edx);
+        has_avx2 = ebx & bit_AVX2;
     }
-    void init3np1(){
-        unsigned long upper_lm = 0;
-        unsigned long lower_lm = 0;
-        unsigned long iterations = 0;
-        std::cout << "Iterations?: ";
-        std::cin >> iterations;
-        if (std::cin.fail() || iterations == 0) {
-            std::cout << "Invalid iterations. Please enter a positive integer." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
-        }
-        std::cout << "Upper limit?: ";
-        std::cin >> upper_lm;
-        if (std::cin.fail()) {
-            std::cout << "Invalid upper limit." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
-        }
-        std::cout << "Lower limit?: ";
-        std::cin >> lower_lm;
-        if (std::cin.fail()) {
-            std::cout << "Invalid lower limit." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
-        }
-        if (lower_lm > upper_lm) {
-            std::cout << "Error: Lower limit cannot be greater than upper limit." << std::endl;
-            return;
-        }
-        std::vector<std::thread> current_cp_threads;
-        for (unsigned int i = 0; i < num_threads; ++i) {
-            current_cp_threads.emplace_back(p3np1, iterations, upper_lm, lower_lm, i);
-        }
-        for (auto& thread : current_cp_threads) {
-            thread.join();
-        }
+
+    static void showMenu() {
+        std::cout << "\n=== ACTS Nuclear Options ===\n"
+                  << "avx   - AVX/FMA Stress Test\n"
+                  << "3np1  - Collatz Conjecture Bruteforce\n"
+                  << "nuke  - Combined AVX+Collatz Full System Stress\n"
+                  << "exit  - Exit Program\n\n";
     }
-    volatile static void p3np1(const long iterations, const long upper_lm, const long lower_lm, const int thread_id){
-        const auto startTime = std::chrono::steady_clock::now();
-        pcg32 gen(42u + thread_id, 54u + thread_id);
-        std::uniform_int_distribution<unsigned long> gen_long_lm(lower_lm, upper_lm);
-        unsigned long total_steps = 0;
-        for (int i = 0; i < iterations; ++i) {
-            unsigned long steps = 0;
-            p3np1E(gen_long_lm(gen), &steps);
-            total_steps += steps;
+
+    void init3np1() {
+        auto [iterations, lower, upper] = getInputs("Collatz");
+        if (iterations == 0) return;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (int i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { collatzWorker(iterations, lower, upper, i); });
         }
-        const auto endTime = std::chrono::steady_clock::now();
-        const auto duration = endTime - startTime;
-        const long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        std::cout << "Time taken: " << milliseconds << " ms" << ". For thread " << thread_id << std::endl;
+
+        for (auto& t : threads) t.join();
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total Collatz time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
     }
+
     void initAvx() {
-        unsigned long iterations = 0;
-        unsigned long upper_lm = 0;
-        unsigned long lower_lm = 0;
-        std::cout << "Iterations?: ";
-        std::cin >> iterations;
-        if (std::cin.fail() || iterations == 0) {
-            std::cout << "Invalid iterations. Please enter a positive integer." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
+        auto [iterations, lower, upper] = getInputs("AVX");
+        if (iterations == 0) return;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { avxWorker(iterations, lower, upper, i); });
         }
 
-        std::cout << "Upper limit?: ";
-        std::cin >> upper_lm;
-        if (std::cin.fail()) {
-            std::cout << "Invalid upper limit." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
-        }
+        for (auto& t : threads) t.join();
 
-        std::cout << "Lower limit?: ";
-        std::cin >> lower_lm;
-        if (std::cin.fail()) {
-            std::cout << "Invalid lower limit." << std::endl;
-            std::cin.clear();
-            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            return;
-        }
-
-        if (lower_lm > upper_lm) {
-            std::cout << "Error: Lower limit cannot be greater than upper limit." << std::endl;
-            return;
-        }
-
-        std::vector<std::thread> current_avx_threads;
-        for (unsigned int i = 0; i < num_threads; ++i) {
-            current_avx_threads.emplace_back(avxWorker, iterations / num_threads, lower_lm, upper_lm, i);
-        }
-
-        if (unsigned int remaining_iterations = iterations % num_threads; remaining_iterations > 0) {
-            current_avx_threads.emplace_back(avxWorker, remaining_iterations, lower_lm, upper_lm, num_threads);
-        }
-
-
-        for (auto& thread : current_avx_threads) {
-            thread.join();
-        }
-
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total AVX time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
     }
 
-    volatile static void avxWorker(const unsigned long iterations_per_thread, const int lower_lm, const int upper_lm, const int thread_id) {
-        const auto startTime = std::chrono::steady_clock::now();
+    void nuclearOption() {
+        std::cout << "Launching nuclear stress test (AVX + Collatz)...\n";
+        constexpr unsigned long nuke_iterations = 10000000;
+        constexpr int lower = 1, upper = 1000000;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads * 2);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (int i = 0; i < num_threads; ++i) {
+            constexpr long nuke_iterations = 10000000;
+            threads.emplace_back([=]() { avxWorker(nuke_iterations, lower, upper, i); });
+            threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Nuclear test complete! Time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    std::tuple<unsigned long, unsigned long, unsigned long> static getInputs(const std::string& test) {
+        unsigned long its = 0, lower = 0, upper = 0;
+
+        std::cout << test << " iterations? : ";
+        if (!(std::cin >> its)) { badInput(); return {0,0,0}; }
+
+        std::cout << "Lower limit? : ";
+        if (!(std::cin >> lower)) { badInput(); return {0,0,0}; }
+
+        std::cout << "Upper limit? : ";
+        if (!(std::cin >> upper) || lower > upper) { badInput(); return {0,0,0}; }
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        return {its, lower, upper};
+    }
+
+    static void badInput() {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid input!\n";
+    }
+
+    static void pinThread(int core) {
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
-        CPU_SET(thread_id % std::thread::hardware_concurrency(), &cpuset);
+        CPU_SET(core % std::thread::hardware_concurrency(), &cpuset);
         pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+    }
 
-        pcg32 gen(42u + thread_id, 54u + thread_id);
-        std::uniform_real_distribution<float> gen_float_lm(static_cast<float>(lower_lm), static_cast<float>(upper_lm));
+    static void collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
+        pinThread(tid);
+        pcg32 gen(42u + tid, 54u + tid);
+        std::uniform_int_distribution<unsigned long> dist(lower, upper);
 
-        constexpr int AVX_BUFFER_SIZE = 32;  // 32 floats = 128 bytes
-        alignas(32) float n1[AVX_BUFFER_SIZE];
-        alignas(32) float n2[AVX_BUFFER_SIZE];
-        alignas(32) float n3[AVX_BUFFER_SIZE];
-        alignas(32) float out[AVX_BUFFER_SIZE];
+        unsigned long total_steps = 0;
+        const auto start = std::chrono::high_resolution_clock::now();
 
-        for (unsigned long iter = 0; iter < iterations_per_thread; ++iter) {
-            for (int i = 0; i < AVX_BUFFER_SIZE; ++i) {
-                n1[i] = gen_float_lm(gen);
-                n2[i] = gen_float_lm(gen);
-                n3[i] = gen_float_lm(gen);
+        for (unsigned long i = 0; i < iterations; ) {
+            // Fix: Ensure both arguments are unsigned long
+            const unsigned long batch = std::min(static_cast<unsigned long>(COLLATZ_BATCH_SIZE), iterations - i);
+            unsigned long batch_steps = 0;
+
+            for (unsigned long j = 0; j < batch; ++j) {
+                unsigned long steps = 0;
+                p3np1E(dist(gen), &steps);
+                batch_steps += steps;
             }
-            for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
-                avx(&n1[offset], &n2[offset], &n3[offset], &out[offset]);
-            }
-            volatile float sink = 0;
-            for (int i = 0; i < AVX_BUFFER_SIZE; ++i) {
-                sink += out[i];  // Prevent optimization
-            }
+
+            total_steps += batch_steps;
+            i += batch;  // Move this here to properly track progress
         }
-        const auto endTime = std::chrono::steady_clock::now();
-        const auto duration = endTime - startTime;
-        const long long milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
-        std::cout << "Time taken: " << milliseconds << " ms" << ". For thread " << thread_id << std::endl;
 
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Thread " << tid << " done: " << total_steps << " steps in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    static void avxWorker(unsigned long iterations, float lower, float upper, int tid) {
+        pinThread(tid);
+        pcg32 gen(42u + tid, 54u + tid);
+        std::uniform_real_distribution<float> dist(lower, upper);
+
+        alignas(32) float n1[AVX_BUFFER_SIZE], n2[AVX_BUFFER_SIZE],
+                          n3[AVX_BUFFER_SIZE], out[AVX_BUFFER_SIZE];
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned long i = 0; i < iterations; ++i) {
+            // Fill buffers with random data
+            for (int j = 0; j < AVX_BUFFER_SIZE; ++j) {
+                n1[j] = dist(gen);
+                n2[j] = dist(gen);
+                n3[j] = dist(gen);
+            }
+
+            // Process in AVX chunks
+            for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
+                avx(n1+offset, n2+offset, n3+offset, out+offset);
+            }
+
+            // Prevent optimization
+            asm volatile("" : : "r"(out) : "memory");
+        }
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Thread " << tid << " AVX done in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
     }
 };
 
 int main() {
-    acts test;
-    test.init();
+    acts().init();
     return 0;
 }
