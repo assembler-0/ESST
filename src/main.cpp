@@ -90,8 +90,7 @@ private:
             current_avx_threads.emplace_back(avxWorker, iterations / num_threads, lower_lm, upper_lm, i);
         }
 
-        unsigned int remaining_iterations = iterations % num_threads;
-        if (remaining_iterations > 0) {
+        if (unsigned int remaining_iterations = iterations % num_threads; remaining_iterations > 0) {
             current_avx_threads.emplace_back(avxWorker, remaining_iterations, lower_lm, upper_lm, num_threads);
         }
 
@@ -103,25 +102,24 @@ private:
     }
 
     // This function will be executed by each thread
-    static void avxWorker(unsigned long iterations_per_thread, int lower_lm, int upper_lm, int thread_id) {
+    static void avxWorker(const unsigned long iterations_per_thread, const int lower_lm, const int upper_lm, const int thread_id) {
         std::cout << "AVX test! (Thread " << thread_id << ")\n";
 
-        // Seed the random number generator differently for each thread
-        // Using thread_id as part of the seed for simplicity, but a more robust
-        // seeding strategy might involve std::random_device.
         pcg32 gen(42u + thread_id, 54u + thread_id);
         std::uniform_real_distribution<float> gen_float_lm(static_cast<float>(lower_lm), static_cast<float>(upper_lm));
 
         alignas(32) float n1[AVX_ARRAY_SIZE];
         alignas(32) float n2[AVX_ARRAY_SIZE];
+        alignas(32) float n3[AVX_ARRAY_SIZE];
         alignas(32) float out[AVX_ARRAY_SIZE]; // Each thread has its own output array
 
         for (unsigned long iter = 0; iter < iterations_per_thread; ++iter) {
             for (int i = 0; i < AVX_ARRAY_SIZE; ++i) {
                 n1[i] = gen_float_lm(gen);
                 n2[i] = gen_float_lm(gen);
+                n3[i] = gen_float_lm(gen);
             }
-            avx(n1, n2, out);
+            avx(n1, n2, n3, out);
         }
 
         std::cout << "Thread " << thread_id << " Result: ";
