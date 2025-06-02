@@ -7,4 +7,7 @@ extern "C" {
     void floodMemory(void* buffer, unsigned long* iterations_ptr, size_t buffer_size);
     void rowhammerAttack(void* buffer, unsigned long* iterations_ptr, size_t buffer_size);
     void floodNt(void* buffer, unsigned long* iterations_ptr, size_t buffer_size);
+    void aes128EncryptBlock(void* out, const void* in, const void* key);
+    void aes256Keygen(void* expanded_key);
+    void aesXtsEncrypt(void* out, const void* in, const void* key, const void* tweak, size_t blocks);
 }

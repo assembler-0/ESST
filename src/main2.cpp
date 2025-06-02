@@ -1,0 +1,356 @@
+#include "core.hpp"
+#include "pcg_random.hpp"
+#include <iostream>
+#include <random>
+#include <string>
+#include <unordered_map>
+#include <functional>
+#include <thread>
+#include <chrono>
+#include <vector>
+#include <immintrin.h>
+#include <cpuid.h>
+#include <sched.h>
+#include <sys/mman.h>
+class acts {
+public:
+    void init() {
+        detect_cpu_features();
+        std::cout << "ACTS version " << APP_VERSION << " | CPU: " << cpu_brand << "\n";
+        std::cout << "Features: AVX" << (has_avx ? "+" : "-")
+                  << " | AVX2" << (has_avx2 ? "+" : "-")
+                  << " | FMA" << (has_fma ? "+" : "-") << "\n";
+
+        while (running) {
+            std::cout << "[ACTS] >> ";
+            if (!std::getline(std::cin, op_mode)) break;
+
+            if (auto it = command_map.find(op_mode); it != command_map.end()) {
+                it->second();
+            }
+            else if (!op_mode.empty()) {
+                std::cout << "Invalid command\n";
+            }
+        }
+    }
+
+private:
+    bool running = true;
+    std::string op_mode;
+    std::string cpu_brand;
+    bool has_avx = false, has_avx2 = false, has_fma = false;
+    const unsigned int num_threads = std::thread::hardware_concurrency();
+
+    static constexpr auto APP_VERSION = "0.2";
+    static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
+    static constexpr int COLLATZ_BATCH_SIZE = 100000;
+
+    const std::unordered_map<std::string, std::function<void()>> command_map = {
+        {"exit", [this]() { running = false; }},
+        {"menu", [this]() { showMenu(); }},
+        {"avx",  [this]() { initAvx(); }},
+        {"3np1", [this]() { init3np1(); }},
+        {"nuke", [this]() { nuclearOption(); }},
+        {"mem", [this]() { initMem(); }},
+        {"aes", [this]() { initAES(); }}
+    };
+
+    void detect_cpu_features() {
+        char brand[0x40] = {0};
+        unsigned int eax, ebx, ecx, edx;
+
+        __get_cpuid(0x80000002, &eax, &ebx, &ecx, &edx);
+        memcpy(brand, &eax, 4); memcpy(brand+4, &ebx, 4);
+        memcpy(brand+8, &ecx, 4); memcpy(brand+12, &edx, 4);
+
+        __get_cpuid(0x80000003, &eax, &ebx, &ecx, &edx);
+        memcpy(brand+16, &eax, 4); memcpy(brand+20, &ebx, 4);
+        memcpy(brand+24, &ecx, 4); memcpy(brand+28, &edx, 4);
+
+        __get_cpuid(0x80000004, &eax, &ebx, &ecx, &edx);
+        memcpy(brand+32, &eax, 4); memcpy(brand+36, &ebx, 4);
+        memcpy(brand+40, &ecx, 4); memcpy(brand+44, &edx, 4);
+
+        cpu_brand = brand;
+
+        __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+        has_avx = ecx & bit_AVX;
+        has_fma = ecx & bit_FMA;
+
+        __get_cpuid(7, &eax, &ebx, &ecx, &edx);
+        has_avx2 = ebx & bit_AVX2;
+    }
+
+    static void showMenu() {
+        std::cout << "\n========= ACTS =========\n"
+                  << "avx   - AVX/FMA Stress Test\n"
+                  << "3np1  - Collatz Conjecture Bruteforce\n"
+                  << "mem   - Extreme memory testing\n"
+                  << "ase   - Vetor AES stressing\n"
+                  << "nuke  - Combined AVX+Collatz+Mem Full System Stress\n"
+                  << "exit  - Exit Program\n\n";
+    }
+
+    void init3np1() {
+        auto [iterations, lower, upper] = getInputs("Collatz");
+        if (iterations == 0) return;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (int i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { collatzWorker(iterations, lower, upper, i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total Collatz time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    void initAvx() {
+        auto [iterations, lower, upper] = getInputs("AVX");
+        if (iterations == 0) return;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { avxWorker(iterations, lower, upper, i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total AVX time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    void initMem() {
+        char status;
+        std::cout << "ONE TIME WARNING THIS TEST CONTAIN ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
+        std::cin >> status;
+        switch (status){
+            case 'y': break;
+            case 'Y': break;
+            default: return;
+        }
+        unsigned long iterations = 0;
+        std::cout << "Iterations?: ";
+        if (!(std::cin >> iterations)) badInput();
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { memoryWorker(iterations, i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total memory test time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    void initAES() {
+        std::vector<std::thread> threads;
+        for (int i = 0; i < num_threads; i++) {
+            threads.emplace_back(aesWorker, i);
+        }
+        for (auto& t : threads) t.join();
+        std::cout << "AES stress test completed\n";
+    }
+
+    void nuclearOption() {
+        std::cout << "Launching nuclear stress test (AVX + Collatz + Mem)...\n";
+        constexpr unsigned long nuke_iterations = 1000000000;
+        constexpr int lower = 1, upper = 1000000;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads * 2);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (int i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { avxWorker(nuke_iterations, lower, upper, i); });
+            threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
+            threads.emplace_back([=]() { memoryWorker(nuke_iterations, i); });
+            threads.emplace_back([=]() { aesWorker(i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Nuclear test complete! Time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    std::tuple<unsigned long, unsigned long, unsigned long> getInputs(const std::string& test) {
+        unsigned long its = 0, lower = 0, upper = 0;
+
+        std::cout << test << " iterations? : ";
+        if (!(std::cin >> its)) { badInput(); return {0,0,0}; }
+
+        std::cout << "Lower limit? : ";
+        if (!(std::cin >> lower)) { badInput(); return {0,0,0}; }
+
+        std::cout << "Upper limit? : ";
+        if (!(std::cin >> upper)) {
+            badInput();
+            return {0,0,0};
+        }
+
+        // Now check range separately
+        if (lower > upper) {
+            std::cout << "Error: Lower limit cannot be greater than upper limit.\n";
+            badInput();
+            return {0,0,0};
+        }
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        return {its, lower, upper};
+    }
+
+    static void badInput() {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid input!\n";
+    }
+
+    static void pinThread(int core) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(core % std::thread::hardware_concurrency(), &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+    }
+    static void* allocate_huge_buffer(size_t size) {
+    #ifdef __linux__
+        void* ptr = mmap(nullptr, size, PROT_READ|PROT_WRITE,
+                        MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
+        if (ptr != MAP_FAILED) return ptr;
+    #endif
+        return aligned_alloc(1 << 21, size); // Fallback to 2MB aligned
+    }
+
+    static void free_buffer(void* buf, size_t size) {
+    #ifdef __linux__
+        munmap(buf, size);
+    #else
+        free(buf);
+    #endif
+    }
+
+    static void memoryWorker(unsigned long iterations, const int thread_id) {
+        pinThread(thread_id);
+        constexpr size_t size = 1 << 30;
+        void* buffer = allocate_huge_buffer(size);
+        constexpr size_t buffer_size = size;
+
+        floodL1L2(buffer, &iterations, buffer_size);
+        floodMemory(buffer, &iterations, buffer_size);
+        floodNt(buffer, &iterations, buffer_size);
+        std::cout << "WARNING: Rowhammer test running on thread " << thread_id << " (may cause bit flips)\n";
+        rowhammerAttack(buffer, &iterations, buffer_size);
+
+        free_buffer(buffer, size);
+    }
+
+    static void aesWorker(int tid) {
+        pinThread(tid);
+
+        // Allocate aligned buffers
+        alignas(16) uint8_t key[32] = {0x01}; // All-zero key (worst-case)
+        alignas(16) uint8_t expanded_key[240]; // AES-256 expanded key
+        alignas(16) uint8_t plaintext[16] = {0};
+        alignas(16) uint8_t ciphertext[16];
+
+        constexpr size_t BLOCKS = 1 << 24; // 16MB test
+        auto buffer = std::make_unique<uint8_t[]>(BLOCKS * 16);
+
+        // Key expansion (stress FPU)
+        aes256Keygen(expanded_key);
+
+        // Encrypt individual blocks (stress latency)
+        for (size_t i = 0; i < BLOCKS; i++) {
+            aes128EncryptBlock(ciphertext, plaintext, key);
+            asm volatile("" : : "r"(ciphertext) : "memory");
+        }
+
+        // XTS mode (stress throughput)
+        uint8_t tweak[16] = {0};
+        aesXtsEncrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
+    }
+
+    static void collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
+        pinThread(tid);
+        pcg32 gen(42u + tid, 54u + tid);
+        std::uniform_int_distribution<unsigned long> dist(lower, upper);
+
+        unsigned long total_steps = 0;
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned long i = 0; i < iterations; ) {
+            const unsigned long batch = std::min(static_cast<unsigned long>(COLLATZ_BATCH_SIZE), iterations - i);
+            unsigned long batch_steps = 0;
+
+            for (unsigned long j = 0; j < batch; ++j) {
+                unsigned long steps = 0;
+                p3np1E(dist(gen), &steps);
+                batch_steps += steps;
+            }
+
+            total_steps += batch_steps;
+            i += batch;
+        }
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Thread " << tid << " done: " << total_steps << " steps in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    static void avxWorker(unsigned long iterations, float lower, float upper, int tid) {
+        pinThread(tid);
+        pcg32 gen(42u + tid, 54u + tid);
+        std::uniform_real_distribution<float> dist(lower, upper);
+
+        alignas(32) float n1[AVX_BUFFER_SIZE], n2[AVX_BUFFER_SIZE],
+                          n3[AVX_BUFFER_SIZE], out[AVX_BUFFER_SIZE];
+
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned long i = 0; i < iterations; ++i) {
+            for (int j = 0; j < AVX_BUFFER_SIZE; ++j) {
+                n1[j] = dist(gen);
+                n2[j] = dist(gen);
+                n3[j] = dist(gen);
+            }
+
+            for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
+                avx(n1+offset, n2+offset, n3+offset, out+offset);
+            }
+
+            asm volatile("" : : "r"(out) : "memory");
+        }
+
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Thread " << tid << " AVX done in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+};
+
+int main() {
+    acts().init();
+    return 0;
+}
