@@ -128,7 +128,7 @@ private:
         for (auto& t : threads) t.join();
 
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total AVX time: "
+        std::cout << "Total AVX compute time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
@@ -162,11 +162,12 @@ private:
     }
 
     void initAES() {
+        const auto start = std::chrono::high_resolution_clock::now();
         unsigned long iterations = 0;
         unsigned int block_size = 0;
         std::cout << "Iterations?: ";
         if (!(std::cin >> iterations)) badInput();
-        if (iterations > 50) std::cout << "Over 50 iterations is not recomended, continuing...\n";
+        if (iterations > 100) std::cout << "Over 100 iterations is not recomended, continuing...\n";
         std::cout << "Block size? (LEAVE 24 IF YOU DON'T KNOW WHAT YOU ARE DOING): ";
         if (!(std::cin >> block_size)) badInput();
         std::vector<std::thread> threads;
@@ -174,14 +175,15 @@ private:
             threads.emplace_back(aesWorker,iterations, i, block_size);
         }
         for (auto& t : threads) t.join();
-        std::cout << "AES stress test completed\n";
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total AES compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
     }
 
     void nuclearOption() {
         std::cout << "Launching nuclear stress test (AVX + Collatz + AES + Mem)...\n";
-        constexpr unsigned long nuke_iterations = 1000000;
-        constexpr unsigned long nuke_iterations_aes = 15;
-        constexpr unsigned long nuke_iterations_mem = 15;
+        constexpr unsigned long nuke_iterations = 150000000;
+        constexpr unsigned long nuke_iterations_aes = 25;
+        constexpr unsigned long nuke_iterations_mem = 25;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
         constexpr unsigned long lower = 1, upper = 10000000000000000000;
         const int block_size = 26;
