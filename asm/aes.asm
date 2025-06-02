@@ -1,8 +1,7 @@
 section .text
 global aes128EncryptBlock, aes256Keygen, aesXtsEncrypt
 
-; Optimized single block AES-128 encryption
-; rdi = output (16 bytes), rsi = input (16 bytes), rdx = expanded key schedule (176 bytes)
+
 aes128EncryptBlock:
     vmovdqu xmm0, [rsi]             ; Load plaintext
     vpxor xmm0, xmm0, [rdx]         ; AddRoundKey (round 0)
@@ -39,11 +38,7 @@ aes256Keygen:
     mov r10, 13              ; Remaining rounds to generate
 
 .keygenLoop:
-    ; Generate W[i] = W[i-8] XOR SubWord(RotWord(W[i-1])) XOR Rcon (for i%8==0)
-    ; or W[i] = W[i-8] XOR SubWord(W[i-1]) (for i%8==4)
-    ; or W[i] = W[i-8] XOR W[i-1] (otherwise)
 
-    ; For AES-256, we alternate between two patterns every 2 rounds
     test r10, 1
     jz .evenRound
 
@@ -101,25 +96,20 @@ aes256Keygen:
 .keygenDone:
     ret
 
-; Ultra-optimized AES-XTS with 4-way parallel processing
-; rdi = output, rsi = input, rdx = key schedule (240 bytes), rcx = tweak, r8 = block count
 aesXtsEncrypt:
     test r8, r8
     jz .done
 
-    ; Load tweak into xmm15
     vmovdqu xmm15, [rcx]
 
-    ; Process 4 blocks at a time for maximum register utilization
     mov r9, r8
-    shr r9, 2                ; r9 = number of 4-block chunks
-    and r8, 3                ; r8 = remaining blocks (0-3)
+    shr r9, 2
+    and r8, 3
 
 .process4blocks:
     test r9, r9
     jz .processRemaining
 
-    ; Load 4 blocks into xmm11-xmm14 (preserving xmm15 for tweak)
     vmovdqu xmm11, [rsi]
     vmovdqu xmm12, [rsi+16]
     vmovdqu xmm13, [rsi+32]
