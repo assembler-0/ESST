@@ -132,6 +132,14 @@ private:
     }
 
     void initMem() {
+        char status;
+        std::cout << "ONE TIME WARNING THIS TEST CONTAIN ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
+        std::cin >> status;
+        switch (status){
+            case 'y': break;
+            case 'Y': break;
+            default: return;
+        }
         unsigned long iterations = 0;
         std::cout << "Iterations?: ";
         if (!(std::cin >> iterations)) badInput();
