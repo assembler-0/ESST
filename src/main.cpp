@@ -179,14 +179,14 @@ private:
 
     void nuclearOption() {
         std::cout << "Launching nuclear stress test (AVX + Collatz + AES + Mem)...\n";
-        constexpr unsigned long nuke_iterations = 10000000;
-        constexpr unsigned long nuke_iterations_aes = 10;
-        constexpr unsigned long nuke_iterations_mem = 10;
+        constexpr unsigned long nuke_iterations = 1000000;
+        constexpr unsigned long nuke_iterations_aes = 15;
+        constexpr unsigned long nuke_iterations_mem = 15;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
         constexpr unsigned long lower = 1, upper = 10000000000000000000;
         const int block_size = 26;
         std::vector<std::thread> threads;
-        threads.reserve(num_threads * 2);
+        threads.reserve(num_threads * 4);
 
         const auto start = std::chrono::high_resolution_clock::now();
 
@@ -272,7 +272,7 @@ private:
         rowhammerAttack(buffer, &iterations, buffer_size);
         free_buffer(buffer, size);
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "AES Thread " << thread_id << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+        std::cout << "MEM Thread " << thread_id << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
 
@@ -339,8 +339,7 @@ private:
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_real_distribution<float> dist(lower, upper);
 
-        alignas(32) float n1[AVX_BUFFER_SIZE], n2[AVX_BUFFER_SIZE],
-                          n3[AVX_BUFFER_SIZE], out[AVX_BUFFER_SIZE];
+        alignas(32) float n1[AVX_BUFFER_SIZE], n2[AVX_BUFFER_SIZE], n3[AVX_BUFFER_SIZE];
 
         const auto start = std::chrono::high_resolution_clock::now();
 
@@ -352,10 +351,9 @@ private:
             }
 
             for (int offset = 0; offset < AVX_BUFFER_SIZE; offset += 8) {
-                avx(n1+offset, n2+offset, n3+offset, out+offset);
+                avx(n1+offset, n2+offset, n3+offset);
             }
 
-            asm volatile("" : : "r"(out) : "memory");
         }
 
         auto duration = std::chrono::high_resolution_clock::now() - start;

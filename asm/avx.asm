@@ -20,9 +20,6 @@ avx:
         vmovaps ymm14, ymm2
         vmovaps ymm15, ymm0
 
-        ; Main torture loop - 50,000 iterations
-        mov rax, 50000
-
 .main_loop:
         ; WAVE 1: Parallel FMA operations (maximum throughput)
         vfmadd132ps ymm0, ymm1, ymm2
@@ -112,15 +109,4 @@ avx:
         vsubps ymm14, ymm13, ymm9
         vdivps ymm15, ymm14, ymm10
 
-        ; Integer work to keep scalar units busy
-        add rax, 1
-        sub rax, 2
-
-        ; Loop control
-        dec rax
-        test rax, rax
-        jnz .main_loop
-
-        ; Store result
-        vmovaps [rcx], ymm15
         ret
