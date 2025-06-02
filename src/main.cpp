@@ -87,7 +87,7 @@ private:
                   << "3np1  - Collatz Conjecture Bruteforce\n"
                   << "mem   - Extreme memory testing\n"
                   << "aes   - Vetor AES stressing\n"
-                  << "full  - Combined AVX+Collatz+Mem Full System Stress\n"
+                  << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
 
@@ -135,7 +135,7 @@ private:
 
     void initMem() {
         char status;
-        std::cout << "ONE TIME WARNING THIS TEST CONTAIN ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
+        std::cout << "ONE TIME WARNING, THIS TEST CONTAINS ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
         std::cin >> status;
         switch (status){
             case 'y': break;
@@ -261,19 +261,14 @@ private:
 
     static void memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
-        const auto start = std::chrono::high_resolution_clock::now();
         constexpr size_t size = 1 << 30;
         void* buffer = allocate_huge_buffer(size);
         constexpr size_t buffer_size = size;
         floodL1L2(buffer, &iterations, buffer_size);
         floodMemory(buffer, &iterations, buffer_size);
         floodNt(buffer, &iterations, buffer_size);
-        std::cout << "WARNING: Rowhammer test running on thread " << thread_id << " (may cause bit flips)\n";
         rowhammerAttack(buffer, &iterations, buffer_size);
         free_buffer(buffer, size);
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "MEM Thread " << thread_id << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
     }
 
     static void aesWorker(const long iterations, int tid, const int block_size) {
