@@ -230,7 +230,7 @@ private:
     #endif
     }
 
-    static void memoryWorker(constexpr unsigned long iterations, const int thread_id) {
+    static void memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
         constexpr size_t size = 1 << 30;
         void* buffer = allocate_huge_buffer(size);
@@ -239,7 +239,7 @@ private:
         floodL1L2(buffer, &iterations, buffer_size);
         floodMemory(buffer, &iterations, buffer_size);
         floodNt(buffer, &iterations, buffer_size);
-        std::cout << "WARNING: Rowhammer test running on thread" << thread_id << "(may cause bit flips)\n";
+        std::cout << "WARNING: Rowhammer test running on thread " << thread_id << " (may cause bit flips)\n";
         rowhammerAttack(buffer, &iterations, buffer_size);
 
         free_buffer(buffer, size);
