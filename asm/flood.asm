@@ -3,7 +3,7 @@ global floodL1L2, floodMemory, rowhammerAttack, floodNt
 
 ; Intensive L1/L2 cache flooding with multiple access patterns
 floodL1L2:
-    mov rcx, rsi            ; iterations count (second argument)
+    mov rcx, [rsi]            ; iterations count (second argument)
     mov r8, rdi             ; save original buffer pointer
     lea r9, [rdi + rdx]     ; end pointer
     mov rax, 0xdeadbeefcafebabe
@@ -60,7 +60,7 @@ floodL1L2:
 
 ; Intensive memory flooding with multiple access patterns
 floodMemory:
-    mov rcx, rsi            ; iterations count
+    mov rcx, [rsi]            ; iterations count
     mov r8, rdi             ; save original pointer
     lea r9, [rdi + rdx]     ; end pointer
     mov rax, 0xbaadf00dcafebabe
@@ -119,7 +119,7 @@ floodMemory:
 
 ; Aggressive rowhammer with multiple targets and patterns
 rowhammerAttack:
-    mov rcx, rsi            ; iterations count
+    mov rcx, [rsi]            ; iterations count
     mov r8, rdx             ; buffer_size
     shr r8, 2               ; Quarter buffer for multiple targets
 
@@ -174,7 +174,7 @@ rowhammerAttack:
 
 ; Intensive non-temporal flooding with streaming patterns
 floodNt:
-    mov rcx, rsi            ; iterations count
+    mov rcx, [rsi]            ; iterations count
     mov r8, rdi             ; save original pointer
     lea r9, [rdi + rdx]     ; end pointer
 

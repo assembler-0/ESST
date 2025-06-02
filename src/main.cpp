@@ -179,8 +179,8 @@ private:
 
     void nuclearOption() {
         std::cout << "Launching nuclear stress test (AVX + Collatz + AES + Mem)...\n";
-        constexpr unsigned long nuke_iterations = 1000000000;
-        constexpr unsigned long nuke_iterations_aes = 50;
+        constexpr unsigned long nuke_iterations = 10000000;
+        constexpr unsigned long nuke_iterations_aes = 10;
         constexpr unsigned long nuke_iterations_mem = 10;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
         constexpr unsigned long lower = 1, upper = 10000000000000000000;
@@ -190,18 +190,15 @@ private:
 
         const auto start = std::chrono::high_resolution_clock::now();
 
-        for (int i = 0; i < num_threads; ++i) {
+        for (int i = 0; i < num_threads; ++i){
             threads.emplace_back([=]() { avxWorker(nuke_iterations, lower_avx, upper_avx, i); });
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { memoryWorker(nuke_iterations_mem, i); });
             threads.emplace_back([=]() { aesWorker(nuke_iterations_aes, i, block_size); });
         }
-
-
         for (auto& t : threads) t.join();
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Nuclear test complete! Time: "
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
@@ -264,17 +261,19 @@ private:
 
     static void memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
+        const auto start = std::chrono::high_resolution_clock::now();
         constexpr size_t size = 1 << 30;
         void* buffer = allocate_huge_buffer(size);
         constexpr size_t buffer_size = size;
-
         floodL1L2(buffer, &iterations, buffer_size);
         floodMemory(buffer, &iterations, buffer_size);
         floodNt(buffer, &iterations, buffer_size);
         std::cout << "WARNING: Rowhammer test running on thread " << thread_id << " (may cause bit flips)\n";
         rowhammerAttack(buffer, &iterations, buffer_size);
-
         free_buffer(buffer, size);
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "AES Thread " << thread_id << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
     }
 
     static void aesWorker(const long iterations, int tid, const int block_size) {
@@ -303,7 +302,7 @@ private:
             aesXtsEncrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
         }
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+        std::cout << "AES Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
 
@@ -330,7 +329,7 @@ private:
         }
 
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Thread " << tid << " done: " << total_steps << " steps in "
+        std::cout << "Collatz Thread " << tid << " done: " << total_steps << " steps in "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
@@ -360,7 +359,7 @@ private:
         }
 
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Thread " << tid << " AVX done in "
+        std::cout << "AVX Thread " << tid << " done in "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
