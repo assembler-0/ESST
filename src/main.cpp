@@ -132,11 +132,13 @@ private:
     }
 
     void initMem() {
+        unsigned long iterations = 0;
+        std::cout << "Iterations?: ";
+        if (!(std::cin >> iterations)) badInput();
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
 
         const auto start = std::chrono::high_resolution_clock::now();
-        constexpr long iterations = 10000000000;
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=]() { memoryWorker(iterations, i); });
         }
@@ -151,7 +153,7 @@ private:
 
     void nuclearOption() {
         std::cout << "Launching nuclear stress test (AVX + Collatz + Mem)...\n";
-        constexpr unsigned long nuke_iterations = 10000000;
+        constexpr unsigned long nuke_iterations = 1000000000;
         constexpr int lower = 1, upper = 1000000;
 
         std::vector<std::thread> threads;
