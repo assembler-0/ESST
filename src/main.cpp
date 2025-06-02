@@ -11,7 +11,7 @@
 #include <immintrin.h>
 #include <cpuid.h>
 #include <sched.h>
-
+#include <sys/mman.h>
 class acts {
 public:
     void init() {
@@ -50,7 +50,8 @@ private:
         {"menu", [this]() { showMenu(); }},
         {"avx",  [this]() { initAvx(); }},
         {"3np1", [this]() { init3np1(); }},
-        {"nuke", [this]() { nuclearOption(); }}
+        {"nuke", [this]() { nuclearOption(); }},
+        {"mem", [this]() { initMem(); }}
     };
 
     void detect_cpu_features() {
@@ -83,7 +84,8 @@ private:
         std::cout << "\n========= ACTS =========\n"
                   << "avx   - AVX/FMA Stress Test\n"
                   << "3np1  - Collatz Conjecture Bruteforce\n"
-                  << "nuke  - Combined AVX+Collatz Full System Stress\n"
+                  << "mem   - Extreme memory testing\n"
+                  << "nuke  - Combined AVX+Collatz+Mem Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
 
@@ -129,8 +131,26 @@ private:
                   << " ms\n";
     }
 
+    void initMem() {
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+        constexpr long iterations = 10000000000;
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=]() { memoryWorker(iterations, i); });
+        }
+
+        for (auto& t : threads) t.join();
+
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total memory test time: "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
     void nuclearOption() {
-        std::cout << "Launching nuclear stress test (AVX + Collatz)...\n";
+        std::cout << "Launching nuclear stress test (AVX + Collatz + Mem)...\n";
         constexpr unsigned long nuke_iterations = 10000000;
         constexpr int lower = 1, upper = 1000000;
 
@@ -142,6 +162,7 @@ private:
         for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([=]() { avxWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
+            threads.emplace_back([=]() { memoryWorker(nuke_iterations, i); });
         }
 
         for (auto& t : threads) t.join();
@@ -162,7 +183,6 @@ private:
         if (!(std::cin >> lower)) { badInput(); return {0,0,0}; }
 
         std::cout << "Upper limit? : ";
-        // FIXED: Separated input check from range validation
         if (!(std::cin >> upper)) {
             badInput();
             return {0,0,0};
@@ -191,7 +211,37 @@ private:
         CPU_SET(core % std::thread::hardware_concurrency(), &cpuset);
         pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
     }
+    static void* allocate_huge_buffer(size_t size) {
+    #ifdef __linux__
+        void* ptr = mmap(nullptr, size, PROT_READ|PROT_WRITE,
+                        MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
+        if (ptr != MAP_FAILED) return ptr;
+    #endif
+        return aligned_alloc(1 << 21, size); // Fallback to 2MB aligned
+    }
 
+    static void free_buffer(void* buf, size_t size) {
+    #ifdef __linux__
+        munmap(buf, size);
+    #else
+        free(buf);
+    #endif
+    }
+
+    static void memoryWorker(constexpr unsigned long iterations, const int thread_id) {
+        pinThread(thread_id);
+        constexpr size_t size = 1 << 30;
+        void* buffer = allocate_huge_buffer(size);
+        constexpr size_t buffer_size = size;
+
+        floodL1L2(buffer, &iterations, buffer_size);
+        floodMemory(buffer, &iterations, buffer_size);
+        floodNt(buffer, &iterations, buffer_size);
+        std::cout << "WARNING: Rowhammer test running on thread" << thread_id << "(may cause bit flips)\n";
+        rowhammerAttack(buffer, &iterations, buffer_size);
+
+        free_buffer(buffer, size);
+    }
     static void collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
         pinThread(tid);
         pcg32 gen(42u + tid, 54u + tid);
