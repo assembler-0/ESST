@@ -50,6 +50,7 @@ private:
         {"menu", [this]() { showMenu(); }},
         {"avx",  [this]() { initAvx(); }},
         {"3np1", [this]() { init3np1(); }},
+        {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
         {"aes", [this]() { initAES(); }}
@@ -84,9 +85,10 @@ private:
     static void showMenu() {
         std::cout << "\n========= ACTS =========\n"
                   << "avx   - AVX/FMA Stress Test\n"
-                  << "3np1  - Collatz Conjecture Bruteforce\n"
+                  << "3np1  - Collatz Conjecture bruteforce\n"
                   << "mem   - Extreme memory testing\n"
                   << "aes   - Vetor AES stressing\n"
+                  << "disk   - Disk stressing\n"
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
@@ -162,15 +164,15 @@ private:
     }
 
     void initAES() {
-        const auto start = std::chrono::high_resolution_clock::now();
         unsigned long iterations = 0;
         unsigned int block_size = 0;
         std::cout << "Iterations?: ";
         if (!(std::cin >> iterations)) badInput();
-        if (iterations > 100) std::cout << "Over 100 iterations is not recomended, continuing...\n";
+        if (iterations > 100) std::cout << "Over 100 iterations is not recommended, continuing...\n";
         std::cout << "Block size? (LEAVE 24 IF YOU DON'T KNOW WHAT YOU ARE DOING): ";
         if (!(std::cin >> block_size)) badInput();
         std::vector<std::thread> threads;
+        const auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < num_threads; i++) {
             threads.emplace_back(aesWorker,iterations, i, block_size);
         }
@@ -179,16 +181,32 @@ private:
         std::cout << "Total AES compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
     }
 
+    void initDiskWrite(){
+        unsigned long iterations = 0;
+        std::cout << "Iterations?: ";
+        if (!(std::cin >> iterations)) badInput();
+        if (iterations > 5) std::cout << "Over 5 iterations is not generally recommended, continuing...\n";
+        std::vector<std::thread> threads;
+        const auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num_threads; i++) {
+            threads.emplace_back(diskWriteWorker, iterations, i);
+        }
+        for (auto& t : threads) t.join();
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total Disk Write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+    }
+
     void nuclearOption() {
-        std::cout << "Launching nuclear stress test (AVX + Collatz + AES + Mem)...\n";
+        std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
         constexpr unsigned long nuke_iterations = 150000000;
         constexpr unsigned long nuke_iterations_aes = 25;
+        constexpr unsigned long nuke_iterations_disk = 10;
         constexpr unsigned long nuke_iterations_mem = 25;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
         constexpr unsigned long lower = 1, upper = 10000000000000000000;
         const int block_size = 26;
         std::vector<std::thread> threads;
-        threads.reserve(num_threads * 4);
+        threads.reserve(num_threads * 5);
 
         const auto start = std::chrono::high_resolution_clock::now();
 
@@ -197,6 +215,7 @@ private:
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { memoryWorker(nuke_iterations_mem, i); });
             threads.emplace_back([=]() { aesWorker(nuke_iterations_aes, i, block_size); });
+            threads.emplace_back([=]() { diskWriteWorker(nuke_iterations_disk, i); });
         }
         for (auto& t : threads) t.join();
         const auto duration = std::chrono::high_resolution_clock::now() - start;
@@ -357,6 +376,14 @@ private:
         std::cout << "AVX Thread " << tid << " done in "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
+    }
+    static void diskWriteWorker(unsigned long iterations, int tid){
+        pinThread(tid);
+        std::string filename = "/tmp/writeTestThread" + std::to_string(tid) + ".bin";
+        for (int i = 0; i < iterations; ++i) {
+            diskWrite(filename.c_str());
+        }
+        std::cout << "Disk Write thread " << tid << " done\n";
     }
 };
 
