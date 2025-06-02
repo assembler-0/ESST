@@ -53,7 +53,8 @@ private:
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
-        {"aes", [this]() { initAES(); }}
+        {"aesenc", [this]() { initAESENC(); }},
+        {"aesdec", [this]() { initAESDEC(); }}
     };
 
     void detect_cpu_features() {
@@ -87,7 +88,8 @@ private:
                   << "avx   - AVX/FMA Stress Test\n"
                   << "3np1  - Collatz Conjecture bruteforce\n"
                   << "mem   - Extreme memory testing\n"
-                  << "aes   - Vetor AES stressing\n"
+                  << "aesenc   - Vetor AES Encrypt stressing\n"
+                  << "aesdec   - Vetor AES Decrypt stressing\n"
                   << "disk   - Disk stressing\n"
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
@@ -163,7 +165,7 @@ private:
                   << " ms\n";
     }
 
-    void initAES() {
+    void initAESENC() {
         unsigned long iterations = 0;
         unsigned int block_size = 0;
         std::cout << "Iterations?: ";
@@ -174,11 +176,29 @@ private:
         std::vector<std::thread> threads;
         const auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(aesWorker,iterations, i, block_size);
+            threads.emplace_back(aesENCWorker,iterations, i, block_size);
         }
         for (auto& t : threads) t.join();
         const auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total AES compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+        std::cout << "Total AES Encrypt compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+    }
+
+    void initAESDEC() {
+        unsigned long iterations = 0;
+        unsigned int block_size = 0;
+        std::cout << "Iterations?: ";
+        if (!(std::cin >> iterations)) badInput();
+        if (iterations > 100) std::cout << "Over 100 iterations is not recommended, continuing...\n";
+        std::cout << "Block size? (LEAVE 24 IF YOU DON'T KNOW WHAT YOU ARE DOING): ";
+        if (!(std::cin >> block_size)) badInput();
+        std::vector<std::thread> threads;
+        const auto start = std::chrono::high_resolution_clock::now();
+        for (int i = 0; i < num_threads; i++) {
+            threads.emplace_back(aesDECWorker,iterations, i, block_size);
+        }
+        for (auto& t : threads) t.join();
+        const auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "Total AES Decrypt compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
     }
 
     void initDiskWrite(){
@@ -198,13 +218,13 @@ private:
 
     void nuclearOption() {
         std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
-        constexpr unsigned long nuke_iterations = 150000000;
-        constexpr unsigned long nuke_iterations_aes = 25;
+        constexpr unsigned long nuke_iterations = 100000000;
+        constexpr unsigned long nuke_iterations_aes = 20;
         constexpr unsigned long nuke_iterations_disk = 10;
-        constexpr unsigned long nuke_iterations_mem = 25;
+        constexpr unsigned long nuke_iterations_mem = 20;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
         constexpr unsigned long lower = 1, upper = 10000000000000000000;
-        const int block_size = 26;
+        const int block_size = 24;
         std::vector<std::thread> threads;
         threads.reserve(num_threads * 5);
 
@@ -214,7 +234,8 @@ private:
             threads.emplace_back([=]() { avxWorker(nuke_iterations, lower_avx, upper_avx, i); });
             threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
             threads.emplace_back([=]() { memoryWorker(nuke_iterations_mem, i); });
-            threads.emplace_back([=]() { aesWorker(nuke_iterations_aes, i, block_size); });
+            threads.emplace_back([=]() { aesENCWorker(nuke_iterations_aes, i, block_size); });
+            threads.emplace_back([=]() { aesDECWorker(nuke_iterations_aes, i, block_size); });
             threads.emplace_back([=]() { diskWriteWorker(nuke_iterations_disk, i); });
         }
         for (auto& t : threads) t.join();
@@ -292,7 +313,7 @@ private:
         free_buffer(buffer, size);
     }
 
-    static void aesWorker(const long iterations, int tid, const int block_size) {
+    static void aesENCWorker(const long iterations, int tid, const int block_size) {
         pinThread(tid);
         const auto start = std::chrono::high_resolution_clock::now();
         // Allocate aligned buffers
@@ -318,7 +339,38 @@ private:
             aesXtsEncrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
         }
         auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "AES Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+        std::cout << "AES Encrypt Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
+                  << " ms\n";
+    }
+
+    static void aesDECWorker(const long iterations, int tid, const int block_size) {
+        pinThread(tid);
+        const auto start = std::chrono::high_resolution_clock::now();
+        // Allocate aligned buffers
+        alignas(16) uint8_t key[32] = {0x01}; // All-zero key (worst-case)
+        alignas(16) uint8_t expanded_key[240]; // AES-256 expanded key
+        alignas(16) uint8_t ciphertext[16] = {0};
+        alignas(16) uint8_t plaintext[16];
+        const size_t BLOCKS = 1 << block_size;
+        auto buffer = std::make_unique<uint8_t[]>(BLOCKS * 16);
+        pcg32 gen(std::random_device{}());
+        std::uniform_int_distribution<uint8_t> dist(0, 255);
+        for (auto& v : key) v = dist(gen);
+
+        for (long i = 0; i < iterations; i++){
+            // Key expansion (stress FPU)
+            aes256Keygen(expanded_key);
+            // Decrypt individual blocks (stress latency)
+            for (size_t i = 0; i < BLOCKS; i++) {
+                aes128DecryptBlock(plaintext, ciphertext, key);
+                asm volatile("" : : "r"(plaintext) : "memory");
+            }
+            // XTS mode decryption (stress throughput)
+            uint8_t tweak[16] = {0};
+            aesXtsDecrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
+        }
+        auto duration = std::chrono::high_resolution_clock::now() - start;
+        std::cout << "AES Decrypt Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
     }
 

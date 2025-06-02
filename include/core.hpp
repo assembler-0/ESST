@@ -10,5 +10,7 @@ extern "C" {
     void aes128EncryptBlock(void * out, const void * in, const void * key);
     void aes256Keygen(void* expanded_key);
     void aesXtsEncrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
+    void aes128DecryptBlock(void * out, const void * in, const void * key);
+    void aesXtsDecrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
     void diskWrite(const char * name);
 }

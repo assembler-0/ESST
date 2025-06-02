@@ -1,5 +1,6 @@
-; Intensive AES-128 decryption for CPU testing
-; rdi = output, rsi = input, rdx = round keys
+section .text
+global aes128DecryptBlock, aes256DecryptBlock, aesXtsDecrypt
+
 aes128DecryptBlock:
     vmovdqu xmm0, [rsi]             ; Load ciphertext
     vpxor xmm0, xmm0, [rdx+160]     ; AddRoundKey (start with round 10 key)
@@ -21,31 +22,31 @@ aes128DecryptBlock:
 
 ; Intensive AES-256 decryption for CPU testing
 ; rdi = output, rsi = input, rdx = round keys (240 bytes)
-aes256DecryptBlock:
-    vmovdqu xmm0, [rsi]             ; Load ciphertext
-    vpxor xmm0, xmm0, [rdx+224]     ; AddRoundKey (start with round 14 key)
-
-    ; Rounds 13-1 with reverse key order
-    vaesdec xmm0, xmm0, [rdx+208]   ; Round 13
-    vaesdec xmm0, xmm0, [rdx+192]   ; Round 12
-    vaesdec xmm0, xmm0, [rdx+176]   ; Round 11
-    vaesdec xmm0, xmm0, [rdx+160]   ; Round 10
-    vaesdec xmm0, xmm0, [rdx+144]   ; Round 9
-    vaesdec xmm0, xmm0, [rdx+128]   ; Round 8
-    vaesdec xmm0, xmm0, [rdx+112]   ; Round 7
-    vaesdec xmm0, xmm0, [rdx+96]    ; Round 6
-    vaesdec xmm0, xmm0, [rdx+80]    ; Round 5
-    vaesdec xmm0, xmm0, [rdx+64]    ; Round 4
-    vaesdec xmm0, xmm0, [rdx+48]    ; Round 3
-    vaesdec xmm0, xmm0, [rdx+32]    ; Round 2
-    vaesdec xmm0, xmm0, [rdx+16]    ; Round 1
-
-    vaesdeclast xmm0, xmm0, [rdx]   ; Final round (round 0 key)
-    vmovdqu [rdi], xmm0
-    ret
-
-; Ultra-intensive parallel AES decryption for maximum CPU stress
-; rdi = output, rsi = input, rdx = round keys, r8 = block count
+;aes256DecryptBlock:
+;    vmovdqu xmm0, [rsi]             ; Load ciphertext
+;    vpxor xmm0, xmm0, [rdx+224]     ; AddRoundKey (start with round 14 key)
+;
+;    ; Rounds 13-1 with reverse key order
+;    vaesdec xmm0, xmm0, [rdx+208]   ; Round 13
+;    vaesdec xmm0, xmm0, [rdx+192]   ; Round 12
+;    vaesdec xmm0, xmm0, [rdx+176]   ; Round 11
+;    vaesdec xmm0, xmm0, [rdx+160]   ; Round 10
+;    vaesdec xmm0, xmm0, [rdx+144]   ; Round 9
+;    vaesdec xmm0, xmm0, [rdx+128]   ; Round 8
+;    vaesdec xmm0, xmm0, [rdx+112]   ; Round 7
+;    vaesdec xmm0, xmm0, [rdx+96]    ; Round 6
+;    vaesdec xmm0, xmm0, [rdx+80]    ; Round 5
+;    vaesdec xmm0, xmm0, [rdx+64]    ; Round 4
+;    vaesdec xmm0, xmm0, [rdx+48]    ; Round 3
+;    vaesdec xmm0, xmm0, [rdx+32]    ; Round 2
+;    vaesdec xmm0, xmm0, [rdx+16]    ; Round 1
+;
+;    vaesdeclast xmm0, xmm0, [rdx]   ; Final round (round 0 key)
+;    vmovdqu [rdi], xmm0
+;    ret
+;
+;; Ultra-intensive parallel AES decryption for maximum CPU stress
+;; rdi = output, rsi = input, rdx = round keys, r8 = block count
 aesXtsDecrypt:
     test r8, r8
     jz .done
