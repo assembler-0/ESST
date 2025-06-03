@@ -227,7 +227,7 @@ private:
         std::cout << "\n====== MEM STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
+                      << std::fixed << std::setprecision(2)
                       << scores[i] << " it/s\n";
         }
         std::cout << "-------------------------------\n";
@@ -351,11 +351,14 @@ private:
     }
 
     void nuclearOption() {
+        unsigned long intensity = 0;
+        std::cout << "Intensity (1 = default): ";
+        std::cin >> intensity;
         std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
-        constexpr unsigned long nuke_iterations = 1500000;
-        constexpr unsigned long nuke_iterations_aes = 15;
-        constexpr unsigned long nuke_iterations_disk = 15;
-        constexpr unsigned long nuke_iterations_mem = 15;
+        unsigned long nuke_iterations = 20000000 * intensity;
+        unsigned long nuke_iterations_aes = 20 * intensity;
+        unsigned long nuke_iterations_disk = 20 * intensity;
+        unsigned long nuke_iterations_mem = 20 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
