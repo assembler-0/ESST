@@ -29,7 +29,7 @@ The stresser is designed to run multiple instances of these tasks simultaneously
 `esst` comes in two versions to suit different testing needs:
 
 * **`esst` (Full / Extreme):** The primary, highly aggressive version designed for maximum system saturation and stability testing. It utilizes all implemented stress modules at their highest intensity and concurrency. This version is intended to push hardware to its absolute breaking point.
-* **`esstOld`:** An older version of esst with higher intesity and less efficient.
+* **`esstOld`:** An older version of `esst` with higher intesity and less efficient.
 
 ## Usage
 
