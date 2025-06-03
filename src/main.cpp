@@ -12,6 +12,9 @@
 #include <cpuid.h>
 #include <sched.h>
 #include <sys/mman.h>
+#include <iomanip>
+#include <algorithm>
+#include <numeric>
 class esst {
 public:
     void init() {
@@ -315,16 +318,25 @@ private:
     static double memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
         const auto start = std::chrono::high_resolution_clock::now();
-        constexpr size_t size = 1 << 30;
-        void* buffer = allocate_huge_buffer(size);
+        constexpr size_t size = 1 << 30; // 1GB
         constexpr size_t buffer_size = size;
-        for (int i = 0; i < iterations; ++i){
+
+        // Allocate buffer once outside the loop
+        void* buffer = allocate_huge_buffer(size);
+        if (!buffer) {
+            std::cerr << "Failed to allocate memory buffer for thread " << thread_id << std::endl;
+            return 0.0;
+        }
+
+        // Run the stress tests
+        for (unsigned long i = 0; i < iterations; ++i) {
             floodL1L2(buffer, &iterations, buffer_size);
             floodMemory(buffer, &iterations, buffer_size);
             floodNt(buffer, &iterations, buffer_size);
             rowhammerAttack(buffer, &iterations, buffer_size);
-            free_buffer(buffer, size);
         }
+        free_buffer(buffer, size);
+
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
         return iterations / elapsed.count();
