@@ -1,6 +1,6 @@
 # 🔥 ESST (Extreme System Stability Stresser) 
 
-**Extreme System Stability Stresser (ESST)** is a brutally aggressive benchmark designed to push server hardware to its absolute breaking point. Not for the faint of heart.
+**Extreme System Stability Stresser (ESST)** is a brutally aggressive benchmark written in C++ and x86_64 Assembly designed to push server hardware to its absolute breaking point. Not for the faint of heart.
 
 ![GitHub license](https://img.shields.io/badge/license-MIT-red)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20Only-red)
