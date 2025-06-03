@@ -152,18 +152,28 @@ private:
         if (!(std::cin >> iterations)) badInput();
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
-
-        const auto start = std::chrono::high_resolution_clock::now();
+        std::vector<double> scores(num_threads);
         for (unsigned i = 0; i < num_threads; ++i) {
-            threads.emplace_back([=]() { memoryWorker(iterations, i); });
+            threads.emplace_back([=, &scores]() {
+                scores[i] = memoryWorker(iterations, i);
+            });
         }
-
         for (auto& t : threads) t.join();
+        double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        double median = scores[scores.size() / 2];
 
-        const auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total memory test time: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
+        std::cout << "\n====== MEM STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(2)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "===============================\n";
     }
 
     void initAESENC() {
@@ -225,9 +235,9 @@ private:
         constexpr unsigned long nuke_iterations_mem = 10;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
-        const int block_size = 24;
+        const int block_size = 26;
         std::vector<std::thread> threads;
-        threads.reserve(num_threads * 5);
+        threads.reserve(num_threads * 6);
 
         const auto start = std::chrono::high_resolution_clock::now();
 
@@ -302,16 +312,22 @@ private:
     #endif
     }
 
-    static void memoryWorker(unsigned long iterations, const int thread_id) {
+    static double memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
+        const auto start = std::chrono::high_resolution_clock::now();
         constexpr size_t size = 1 << 30;
         void* buffer = allocate_huge_buffer(size);
         constexpr size_t buffer_size = size;
-        floodL1L2(buffer, &iterations, buffer_size);
-        floodMemory(buffer, &iterations, buffer_size);
-        floodNt(buffer, &iterations, buffer_size);
-        rowhammerAttack(buffer, &iterations, buffer_size);
-        free_buffer(buffer, size);
+        for (int i = 0; i < iterations; ++i){
+            floodL1L2(buffer, &iterations, buffer_size);
+            floodMemory(buffer, &iterations, buffer_size);
+            floodNt(buffer, &iterations, buffer_size);
+            rowhammerAttack(buffer, &iterations, buffer_size);
+            free_buffer(buffer, size);
+        }
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();
     }
 
     static void aesENCWorker(const long iterations, int tid, const int block_size) {
