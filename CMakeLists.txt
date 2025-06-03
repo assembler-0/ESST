@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.30)
 project(ACTS LANGUAGES C CXX ASM)
 
 # Option to build the lite version
-option(BUILD_LITE_VERSION "Build the lite version of the stresser (uses mainLite.cpp)" OFF)
+option(BUILD_OLD_VERSION "Build the OLD version of the stresser (uses mainOld.cpp)" OFF)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -19,8 +19,8 @@ include_directories(include)
 file(GLOB ASM_SRC "asm/*.asm")
 
 if(BUILD_LITE_VERSION)
-    set(EXECUTABLE_NAME "esst-lite")
-    set(MAIN_SOURCE_FILE "src/mainLite.cpp")
+    set(EXECUTABLE_NAME "esstOld")
+    set(MAIN_SOURCE_FILE "src/mainOld.cpp")
 else()
     set(EXECUTABLE_NAME "esst")
     set(MAIN_SOURCE_FILE "src/main.cpp")

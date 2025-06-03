@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
+#include <optional>
 class esst {
 public:
     void init() {
@@ -99,78 +100,134 @@ private:
                   << "exit  - Exit Program\n\n";
     }
 
-    void init3np1() {
-        auto [iterations, lower, upper] = getInputs("Collatz");
-        if (iterations == 0) return;
-
-        std::vector<std::thread> threads;
-        threads.reserve(num_threads);
-
-        const auto start = std::chrono::high_resolution_clock::now();
-
-        for (int i = 0; i < num_threads; ++i) {
-            threads.emplace_back([=]() { collatzWorker(iterations, lower, upper, i); });
+    void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
         }
-
-        for (auto& t : threads) t.join();
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total Collatz time: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
-    }
-
-    void initAvx() {
-        auto [iterations, lower, upper] = getInputs("AVX");
-        if (iterations == 0) return;
-
-        std::vector<std::thread> threads;
-        threads.reserve(num_threads);
-
-        const auto start = std::chrono::high_resolution_clock::now();
-
-        for (unsigned i = 0; i < num_threads; ++i) {
-            threads.emplace_back([=]() { avxWorker(iterations, lower, upper, i); });
+        if (!lower_o.has_value()) {
+            std::cout << "Lower bound?: ";
+            if (!(std::cin >> lower_o.emplace())) return;
         }
-
-        for (auto& t : threads) t.join();
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total AVX compute time: "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
-    }
-
-    void initMem() {
-        char status;
-        std::cout << "ONE TIME WARNING, THIS TEST CONTAINS ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
-        std::cin >> status;
-        switch (status){
-            case 'y': break;
-            case 'Y': break;
-            default: return;
+        if (!upper_o.has_value()) {
+            std::cout << "Upper bound?: ";
+            if (!(std::cin >> upper_o.emplace())) return;
         }
-        unsigned long iterations = 0;
-        std::cout << "Iterations?: ";
-        if (!(std::cin >> iterations)) badInput();
+        const unsigned long iterations = iterations_o.value();
+        const unsigned long lower = lower_o.value();
+        const unsigned long upper = upper_o.value();
+        if (iterations_o.value() == 0) return;
+
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = collatzWorker(iterations, lower, upper, i);
+            });
+        }
+        for (auto& t : threads) t.join();
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== 3n+1 STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(0)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "===============================\n";
+
+    }
+
+    void initAvx(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        if (!lower_o.has_value()) {
+            std::cout << "Lower bound?: ";
+            if (!(std::cin >> lower_o.emplace())) return;
+        }
+        if (!upper_o.has_value()) {
+            std::cout << "Upper bound?: ";
+            if (!(std::cin >> upper_o.emplace())) return;
+        }
+        const unsigned long iterations = iterations_o.value();
+        const unsigned long lower = lower_o.value();
+        const unsigned long upper = upper_o.value();
+        if (iterations_o.value() == 0) return;
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = avxWorker(iterations, lower, upper, i);
+            });
+        }
+        for (auto& t : threads) t.join();
+
+        double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== AVX STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(0)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "===============================\n";
+
+    }
+
+
+    void initMem(std::optional<unsigned long> user_iterations = std::nullopt) {
+        char status;
+        std::cout << "ONE TIME WARNING, THIS TEST CONTAINS ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
+        std::cin >> status;
+        switch (status) {
+        case 'y': case 'Y': break;
+        default: return;
+        }
+        if (!user_iterations.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> user_iterations.emplace())) return;
+        }
+        if (user_iterations.value() == 0) return;
+        const unsigned long iterations = user_iterations.value();
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = memoryWorker(iterations, i);
             });
         }
         for (auto& t : threads) t.join();
-        double total = std::accumulate(scores.begin(), scores.end(), 0.0);
-        double avg   = total / scores.size();
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
         std::sort(scores.begin(), scores.end());
-        double median = scores[scores.size() / 2];
+        const double median = scores[scores.size() / 2];
 
         std::cout << "\n====== MEM STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(2)
+                      << std::fixed << std::setprecision(0)
                       << scores[i] << " it/s\n";
         }
         std::cout << "-------------------------------\n";
@@ -179,80 +236,136 @@ private:
         std::cout << "===============================\n";
     }
 
-    void initAESENC() {
-        unsigned long iterations = 0;
-        unsigned int block_size = 0;
-        std::cout << "Iterations?: ";
-        if (!(std::cin >> iterations)) badInput();
-        if (iterations > 100) std::cout << "Over 100 iterations is not recommended, continuing...\n";
-        std::cout << "Block size? (LEAVE 24 IF YOU DON'T KNOW WHAT YOU ARE DOING): ";
-        if (!(std::cin >> block_size)) badInput();
+    void initAESENC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) {
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        if (!blksize_o.has_value()) {
+            std::cout << "Blocksize?: ";
+            if (!(std::cin >> blksize_o.emplace())) return;
+        }
+        if (iterations_o.value() == 0) return;
+        unsigned long iterations = iterations_o.value();
+        unsigned int block_size = blksize_o.value();
         std::vector<std::thread> threads;
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(aesENCWorker,iterations, i, block_size);
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = aesENCWorker(iterations, i, block_size);
+            });
         }
         for (auto& t : threads) t.join();
-        const auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total AES Encrypt compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== AESENC STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(0)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "==================================\n";
     }
 
-    void initAESDEC() {
-        unsigned long iterations = 0;
-        unsigned int block_size = 0;
-        std::cout << "Iterations?: ";
-        if (!(std::cin >> iterations)) badInput();
-        if (iterations > 100) std::cout << "Over 100 iterations is not recommended, continuing...\n";
-        std::cout << "Block size? (LEAVE 24 IF YOU DON'T KNOW WHAT YOU ARE DOING): ";
-        if (!(std::cin >> block_size)) badInput();
+    void initAESDEC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) {
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        if (!blksize_o.has_value()) {
+            std::cout << "Blocksize?: ";
+            if (!(std::cin >> blksize_o.emplace())) return;
+        }
+        if (iterations_o.value() == 0) return;
+        unsigned long iterations = iterations_o.value();
+        unsigned int block_size = blksize_o.value();
         std::vector<std::thread> threads;
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(aesDECWorker,iterations, i, block_size);
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = aesDECWorker(iterations, i, block_size);
+            });
         }
         for (auto& t : threads) t.join();
-        const auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total AES Decrypt compute time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== AESDEC STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(0)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "==================================\n";
     }
 
-    void initDiskWrite(){
-        unsigned long iterations = 0;
-        std::cout << "Iterations?: ";
-        if (!(std::cin >> iterations)) badInput();
-        if (iterations > 5) std::cout << "Over 5 iterations is not generally recommended, continuing...\n";
+    void initDiskWrite(std::optional<unsigned long> iterations_o = std::nullopt){
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        unsigned long iterations = iterations_o.value();
         std::vector<std::thread> threads;
-        const auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < num_threads; i++) {
-            threads.emplace_back(diskWriteWorker, iterations, i);
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = diskWriteWorker(iterations, i);
+            });
         }
         for (auto& t : threads) t.join();
-        const auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Total Disk Write time: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << " ms\n";
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== DISK STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(2)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "================================\n";
     }
 
     void nuclearOption() {
         std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
-        constexpr unsigned long nuke_iterations = 100000000;
-        constexpr unsigned long nuke_iterations_aes = 10;
-        constexpr unsigned long nuke_iterations_disk = 5;
-        constexpr unsigned long nuke_iterations_mem = 10;
+        constexpr unsigned long nuke_iterations = 1500000;
+        constexpr unsigned long nuke_iterations_aes = 15;
+        constexpr unsigned long nuke_iterations_disk = 15;
+        constexpr unsigned long nuke_iterations_mem = 15;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
-        const int block_size = 26;
-        std::vector<std::thread> threads;
-        threads.reserve(num_threads * 6);
-
+        constexpr int block_size = 24;
         const auto start = std::chrono::high_resolution_clock::now();
-
-        for (int i = 0; i < num_threads; ++i){
-            threads.emplace_back([=]() { avxWorker(nuke_iterations, lower_avx, upper_avx, i); });
-            threads.emplace_back([=]() { collatzWorker(nuke_iterations, lower, upper, i); });
-            threads.emplace_back([=]() { memoryWorker(nuke_iterations_mem, i); });
-            threads.emplace_back([=]() { aesENCWorker(nuke_iterations_aes, i, block_size); });
-            threads.emplace_back([=]() { aesDECWorker(nuke_iterations_aes, i, block_size); });
-            threads.emplace_back([=]() { diskWriteWorker(nuke_iterations_disk, i); });
-        }
-        for (auto& t : threads) t.join();
+        initMem(nuke_iterations_mem);
+        initAvx(nuke_iterations, lower_avx, upper_avx);
+        init3np1(nuke_iterations, lower, upper);
+        initAESENC(nuke_iterations_aes, block_size);
+        initAESDEC(nuke_iterations_aes, block_size);
+        initDiskWrite(nuke_iterations_disk);
         const auto duration = std::chrono::high_resolution_clock::now() - start;
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
@@ -315,7 +428,7 @@ private:
     #endif
     }
 
-    static double memoryWorker(unsigned long iterations, const int thread_id) {
+    double memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
         const auto start = std::chrono::high_resolution_clock::now();
         constexpr size_t size = 1 << 30; // 1GB
@@ -336,13 +449,13 @@ private:
             rowhammerAttack(buffer, &iterations, buffer_size);
         }
         free_buffer(buffer, size);
-
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
         return iterations / elapsed.count();
+
     }
 
-    static void aesENCWorker(const long iterations, int tid, const int block_size) {
+    static double aesENCWorker(const long iterations, int tid, const int block_size) {
         pinThread(tid);
         const auto start = std::chrono::high_resolution_clock::now();
         // Allocate aligned buffers
@@ -367,12 +480,13 @@ private:
             uint8_t tweak[16] = {0};
             aesXtsEncrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
         }
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "AES Encrypt Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
+
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();
     }
 
-    static void aesDECWorker(const long iterations, int tid, const int block_size) {
+    static double aesDECWorker(const long iterations, int tid, const int block_size) {
         pinThread(tid);
         const auto start = std::chrono::high_resolution_clock::now();
         // Allocate aligned buffers
@@ -398,12 +512,12 @@ private:
             uint8_t tweak[16] = {0};
             aesXtsDecrypt(buffer.get(), buffer.get(), expanded_key, tweak, BLOCKS);
         }
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "AES Decrypt Thread " << tid << " done in: " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();
     }
 
-    static void collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
+    static double collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
         pinThread(tid);
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_int_distribution<unsigned long> dist(lower, upper);
@@ -424,14 +538,12 @@ private:
             total_steps += batch_steps;
             i += batch;
         }
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "Collatz Thread " << tid << " done: " << total_steps << " steps in "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();  // it/s
     }
 
-    static void avxWorker(unsigned long iterations, float lower, float upper, int tid) {
+    static double avxWorker(const unsigned long iterations, const float lower, const float upper, int tid) {
         pinThread(tid);
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_real_distribution<float> dist(lower, upper);
@@ -452,19 +564,21 @@ private:
             }
 
         }
-
-        auto duration = std::chrono::high_resolution_clock::now() - start;
-        std::cout << "AVX Thread " << tid << " done in "
-                  << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
-                  << " ms\n";
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();  // it/s
     }
-    static void diskWriteWorker(unsigned long iterations, int tid){
+    static double diskWriteWorker(unsigned long iterations, int tid){
         pinThread(tid);
+        const auto start = std::chrono::high_resolution_clock::now();
         std::string filename = "/tmp/writeTestThread" + std::to_string(tid) + ".bin";
         for (int i = 0; i < iterations; ++i) {
             diskWrite(filename.c_str());
         }
-        std::cout << "Disk Write thread " << tid << " done\n";
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        std::cout << iterations / elapsed.count() << "\n";
+        return iterations / elapsed.count();
     }
 };
 
