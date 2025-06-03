@@ -220,11 +220,11 @@ private:
     void nuclearOption() {
         std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
         constexpr unsigned long nuke_iterations = 100000000;
-        constexpr unsigned long nuke_iterations_aes = 20;
-        constexpr unsigned long nuke_iterations_disk = 10;
-        constexpr unsigned long nuke_iterations_mem = 20;
-        constexpr unsigned long lower_avx = 0.0001, upper_avx = 10000000000000000000;
-        constexpr unsigned long lower = 1, upper = 10000000000000000000;
+        constexpr unsigned long nuke_iterations_aes = 10;
+        constexpr unsigned long nuke_iterations_disk = 5;
+        constexpr unsigned long nuke_iterations_mem = 10;
+        constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
+        constexpr unsigned long lower = 1, upper = 1000000000000000;
         const int block_size = 24;
         std::vector<std::thread> threads;
         threads.reserve(num_threads * 5);
