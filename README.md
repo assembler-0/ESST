@@ -29,7 +29,7 @@ The stresser is designed to run multiple instances of these tasks simultaneously
 `esst` comes in two versions to suit different testing needs:
 
 * **`esst` (Full / Extreme):** The primary, highly aggressive version designed for maximum system saturation and stability testing. It utilizes all implemented stress modules at their highest intensity and concurrency. This version is intended to push hardware to its absolute breaking point.
-* **`esst-lite`:** A lighter version intended for more controlled or general benchmarking scenarios. This version uses `src/mainLite.cpp` (which you will implement to manage the workload differently, e.g., fewer concurrent tasks, shorter durations, or disabling certain aggressive modules like Rowhammer or excessive disk I/O by default) to provide a less disruptive but still effective load.
+* **`esstOld`:** An older version of esst with higher intesity and less efficient.
 
 ## Usage
 
@@ -46,11 +46,11 @@ The stresser is designed to run multiple instances of these tasks simultaneously
     ```bash
     mkdir build_lite
     cd build_lite
-    cmake -DBUILD_LITE_VERSION=ON ..
+    cmake -DBUILD_OLD_VERSION=ON ..
     make
     ```
-    This will compile `src/mainLite.cpp` and create an executable named `esst-lite`.
-4.  **Run from a Dedicated Terminal:** **Do not run `esst` or `esst-lite` directly in interactive console environments like Jupyter Notebooks or standard shell sessions without proper process management.** These environments are not designed to handle such extreme resource contention and will likely become unresponsive or crash.
+    This will compile `src/mainOld.cpp` and create an executable named `esstOld`.
+4.  **Run from a Dedicated Terminal:** **Do not run `esst` or `esstOld` directly in interactive console environments like Jupyter Notebooks or standard shell sessions without proper process management.** These environments are not designed to handle such extreme resource contention and will likely become unresponsive or crash.
 5.  **Use Process Management Tools:**
     * **`nohup`:** `nohup ./esst_executable > output.log 2>&1 &` (Runs in background, redirects output, keeps running after disconnect).
     * **`screen` or `tmux`:** Create persistent terminal sessions to start `esst`, detach, and reattach later to monitor (if the system isn't completely saturated).
