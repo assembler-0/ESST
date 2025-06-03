@@ -12,6 +12,10 @@
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling, power.
 
+## ✅ Current version
+
+![Version](https://img.shields.io/badge/Current%20Version-Only-v0.5)
+
 ## 🐧 Linux Only
 ![Linux](https://img.shields.io/badge/Compatibility-Linux%20Only-important)
 
