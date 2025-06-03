@@ -13,3 +13,4 @@ CMakeUserPresets.json
 build
 cmake-build-debug
 .idea
+build-lite
