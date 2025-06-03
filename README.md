@@ -3,7 +3,7 @@
 **Extreme System Stability Stresser (ESST)** is a brutally aggressive benchmark designed to push server hardware to its absolute breaking point. Not for the faint of heart.
 
 ![GitHub license](https://img.shields.io/badge/license-MIT-red)
-![Platform](https://img.shields.io/badge/Platform-Linux%20Only-black)
+![Platform](https://img.shields.io/badge/Platform-Linux%20Only-red)
 ![Danger Level](https://img.shields.io/badge/DANGER-Hardware%20Damage%20Risk-orange)
 ![CPU Stress](https://img.shields.io/badge/CPU%20Stress-Maximum%20Thermals-red)
 ![RAM Stress](https://img.shields.io/badge/RAM%20Stress-Rowhammer%20Enabled-critical)
