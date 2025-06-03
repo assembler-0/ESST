@@ -1,4 +1,4 @@
-# esst (Extreme System Stability Stresser)
+# ESST (Extreme System Stability Stresser)
 
 **Extreme System Stability Stresser (esst)** is a highly aggressive and comprehensive benchmark designed to push server-grade hardware to its absolute limits. This tool is intended for experienced users and system administrators to assess the stability, thermal management, and power delivery capabilities of their Linux-based systems under maximum sustained load.
 
@@ -21,8 +21,13 @@ This stresser is designed specifically for **Linux** operating systems.
     * **Main Memory Flooding:** Stresses main memory bandwidth with mixed read/write patterns and non-temporal stores.
     * **Rowhammer Attack Module:** Attempts to induce Rowhammer bit flips, a very aggressive memory test for DRAM integrity (operates with `clflush` to bypass caches).
     * **Non-Temporal Flooding:** Specifically targets memory bandwidth using non-temporal (cache-bypassing) stores for streaming workloads.
-
-The stresser is designed to run multiple instances of these tasks simultaneously per CPU thread, creating an unparalleled load.
+* **Prime Factorization and Cryptographic (`primes.asm`):**
+    * **Dynamic Large Number Generation:** Input values are amplified into huge composites using multiple large primes.
+    * **Trial Division Factorization:** Performs raw trial division with full verification to ensure no optimization short-circuits the workload.
+    * **Redundant Verification Steps:** Multiple multiply-then-compare and modular checks per factor to intentionally increase instruction count.
+    * **Miller-Rabin Probabilistic Primality Testing:** Simulates cryptographic-grade primality tests using modular exponentiation and witness looping.
+    * **Cost Accumulator (rcx):** Tracks the “computational cost” of each operation, returned to caller for performance analysis or leaderboard-based suffering.
+    * **Failsafe Loop Exit and Penalty Tracking:** Faulty verifications are punished by adding extra computation, ensuring fairness in the pain distribution.
 
 ## Versions
 
@@ -42,7 +47,7 @@ The stresser is designed to run multiple instances of these tasks simultaneously
     make
     ```
     This will compile `src/main.cpp` and create an executable named `esst`.
-3.  **Building `esst-lite` (Lite Version):**
+3.  **Building `esstOld` (Old Version):**
     ```bash
     mkdir build_lite
     cd build_lite
@@ -63,14 +68,6 @@ Due to the extreme load, traditional monitoring tools (like `top`, `htop`, `ls`)
 
 * **Remote/Out-of-Band Monitoring:** Utilize your server's **BMC (Baseboard Management Controller) or IPMI interface** for real-time temperature, power consumption, and system health readings. These systems operate independently of the main OS.
 * **Internal Logging:** Design `esst` to log its own progress, completion times, and any error messages directly to files for post-run analysis.
-
-## Reference Performance
-
-**System:** 2x Intel Xeon Platinum 8468V CPUs, 1TB RAM, Intel Max AI GPUs
-**Threads:** 192 logical threads, 6 tasks per thread running simultaneously.
-
-**Reference Time:** 01:25:36 (1 hour, 25 minutes, 36 seconds)
-**Status at Reference Time:** Crashed/Did Not Finish (DNF) - The system completed approximately 1/6th of the total assigned tasks before experiencing a critical event (crash or unrecoverable state). VERSION v0.4
 
 This reference highlights the sheer intensity of `esst`. If your system can run for longer, it indicates higher stability and resilience under extreme conditions.
 
