@@ -14,7 +14,7 @@
 
 ## ✅ Current version
 
-![Version](https://img.shields.io/badge/Current%20Version-Only-v0.5)
+![Version](https://img.shields.io/badge/Current%20Version-v0.5-blue)
 
 ## 🐧 Linux Only
 ![Linux](https://img.shields.io/badge/Compatibility-Linux%20Only-important)
