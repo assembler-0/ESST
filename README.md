@@ -10,32 +10,24 @@
 
 > ⚠️ **WARNING: POTENTIAL HARDWARE DAMAGE**  
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
-> **Requirements:** Industrial-grade cooling, backup power, and a death wish.
+> **Requirements:** Adequate compute power, proper cooling, power.
 
 ## 🐧 Linux Only
 ![Linux](https://img.shields.io/badge/Compatibility-Linux%20Only-important)
 
 ## 💥 Features
 
-| Module | Icon | Intensity | Target |
-|--------|------|-----------|--------|
-| **Integer Arithmetic** (`3np1.asm`) | 🔢 | Extreme | ALUs, Branch Prediction |
-| **AES Encryption/Decryption** | 🔐 | Nuclear | Crypto Accelerators |
-| **AVX/FMA Floating-Point** | 🌡️ | Meltdown | Vector Units |
-| **Disk I/O Stress** | 💾 | SSD Killer | Storage Subsystem |
-| **Memory Flooding** | 💥 | Rowhammer | DRAM Integrity |
-
-### Memory Torture Specifics
-- **L1/L2 Cache Flooding** 🧨  
-  Induces 90%+ cache miss rates
-- **Rowhammer Attack Module** ☢️  
-  Actively tries to flip DRAM bits
-- **Non-Temporal Stores** ⚡  
-  Bypasses caches at 100GB/s+
+| Module | Intensity | Target |
+|--------|-----------|--------|
+| **Integer Arithmetic** (`3np1.asm`/`primes.asm`) | Extreme | ALUs, Branch Prediction |
+| **AES Encryption/Decryption** (`aesENC.asm`/`aesDEC.asm`)|  Nuclear | Crypto Accelerators |
+| **AVX/FMA Floating-Point** (`avx.asm`) | Meltdown | Vector Units |
+| **Disk I/O Stress** (`diskWrite.asm`) | SSD Killer | Storage Subsystem |
+| **Memory Flooding** (`flood.asm`) | Rowhammer | DRAM Integrity |
 
 ## 🚀 Versions
 
-| Version | Badge | Description |
-|---------|-------|-------------|
-| `esst` (Full) | ![Full Version](https://img.shields.io/badge/Version-Full%20Destruction-red) | Maximum system saturation |
-| `esstOld` | ![Old Version](https://img.shields.io/badge/Version-Legacy%20Pain-orange) | Higher intensity, less efficient |
+| Version | Description |
+|---------|-------------|
+| `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full%20Destruction-red) | Maximum system saturation |
+| `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy%20Pain-orange) | Higher intensity, less efficient |
