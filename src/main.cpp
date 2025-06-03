@@ -12,17 +12,17 @@
 #include <cpuid.h>
 #include <sched.h>
 #include <sys/mman.h>
-class acts {
+class esst {
 public:
     void init() {
         detect_cpu_features();
-        std::cout << "ACTS version " << APP_VERSION << " | CPU: " << cpu_brand << "\n";
+        std::cout << "ESST version " << APP_VERSION << " | CPU: " << cpu_brand << "\n";
         std::cout << "Features: AVX" << (has_avx ? "+" : "-")
                   << " | AVX2" << (has_avx2 ? "+" : "-")
                   << " | FMA" << (has_fma ? "+" : "-") << "\n";
 
         while (running) {
-            std::cout << "[ACTS] >> ";
+            std::cout << "[ESST] >> ";
             if (!std::getline(std::cin, op_mode)) break;
 
             if (auto it = command_map.find(op_mode); it != command_map.end()) {
@@ -84,7 +84,8 @@ private:
     }
 
     static void showMenu() {
-        std::cout << "\n========= ACTS =========\n"
+        std::cout << "\n========= ESST =========\n"
+                  << "Extreme System Stability Test\n"
                   << "avx   - AVX/FMA Stress Test\n"
                   << "3np1  - Collatz Conjecture bruteforce\n"
                   << "mem   - Extreme memory testing\n"
@@ -440,6 +441,6 @@ private:
 };
 
 int main() {
-    acts().init();
+    esst().init();
     return 0;
 }

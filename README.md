@@ -1,2 +1,2 @@
-# ACTS
-Avanced Cpu Testing System
+# ESST
+Extreme System Stability Test
