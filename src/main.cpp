@@ -54,6 +54,7 @@ private:
         {"menu", [this]() { showMenu(); }},
         {"avx",  [this]() { initAvx(); }},
         {"3np1", [this]() { init3np1(); }},
+        {"primes", [this]() { initPrimes(); }},
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
@@ -92,6 +93,7 @@ private:
                   << "Extreme System Stability Test\n"
                   << "avx   - AVX/FMA Stress Test\n"
                   << "3np1  - Collatz Conjecture bruteforce\n"
+                  << "primes  - Prime bruteforce\n"
                   << "mem   - Extreme memory testing\n"
                   << "aesenc   - Vetor AES Encrypt stressing\n"
                   << "aesdec   - Vetor AES Decrypt stressing\n"
@@ -135,6 +137,53 @@ private:
         const double median = scores[scores.size() / 2];
 
         std::cout << "\n====== 3n+1 STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(0)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "===============================\n";
+
+    }
+
+    void initPrimes(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        if (!lower_o.has_value()) {
+            std::cout << "Lower bound?: ";
+            if (!(std::cin >> lower_o.emplace())) return;
+        }
+        if (!upper_o.has_value()) {
+            std::cout << "Upper bound?: ";
+            if (!(std::cin >> upper_o.emplace())) return;
+        }
+        const unsigned long iterations = iterations_o.value();
+        const unsigned long lower = lower_o.value();
+        const unsigned long upper = upper_o.value();
+        if (iterations_o.value() == 0) return;
+
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = primesWorker(iterations, lower, upper, i);
+            });
+        }
+        for (auto& t : threads) t.join();
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::sort(scores.begin(), scores.end());
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== Primes STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
                       << std::fixed << std::setprecision(0)
@@ -355,7 +404,9 @@ private:
         std::cout << "Intensity (1 = default): ";
         std::cin >> intensity;
         std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
-        unsigned long nuke_iterations = 20000000 * intensity;
+        unsigned long nuke_iterations_avx = 20000000 * intensity;
+        unsigned long nuke_iterations_3np1 = 2000000000 * intensity;
+        unsigned long nuke_iterations_primes = 1 * intensity;
         unsigned long nuke_iterations_aes = 20 * intensity;
         unsigned long nuke_iterations_disk = 20 * intensity;
         unsigned long nuke_iterations_mem = 20 * intensity;
@@ -364,8 +415,9 @@ private:
         constexpr int block_size = 24;
         const auto start = std::chrono::high_resolution_clock::now();
         initMem(nuke_iterations_mem);
-        initAvx(nuke_iterations, lower_avx, upper_avx);
-        init3np1(nuke_iterations, lower, upper);
+        initAvx(nuke_iterations_avx, lower_avx, upper_avx);
+        init3np1(nuke_iterations_3np1, lower, upper);
+        initPrimes(nuke_iterations_primes, lower, upper);
         initAESENC(nuke_iterations_aes, block_size);
         initAESDEC(nuke_iterations_aes, block_size);
         initDiskWrite(nuke_iterations_disk);
@@ -373,39 +425,6 @@ private:
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
-    }
-
-    std::tuple<unsigned long, unsigned long, unsigned long> getInputs(const std::string& test) {
-        unsigned long its = 0;
-        float lower = 0, upper = 0;
-
-        std::cout << test << " iterations? : ";
-        if (!(std::cin >> its)) { badInput(); return {0,0,0}; }
-
-        std::cout << "Lower limit? : ";
-        if (!(std::cin >> lower)) { badInput(); return {0,0,0}; }
-
-        std::cout << "Upper limit? : ";
-        if (!(std::cin >> upper)) {
-            badInput();
-            return {0,0,0};
-        }
-
-        // Now check range separately
-        if (lower > upper) {
-            std::cout << "Error: Lower limit cannot be greater than upper limit.\n";
-            badInput();
-            return {0,0,0};
-        }
-
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        return {its, lower, upper};
-    }
-
-    static void badInput() {
-        std::cin.clear();
-        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-        std::cout << "Invalid input!\n";
     }
 
     static void pinThread(int core) {
@@ -535,6 +554,32 @@ private:
             for (unsigned long j = 0; j < batch; ++j) {
                 unsigned long steps = 0;
                 p3np1E(dist(gen), &steps);
+                batch_steps += steps;
+            }
+
+            total_steps += batch_steps;
+            i += batch;
+        }
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();  // it/s
+    }
+
+    static double primesWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
+        pinThread(tid);
+        pcg32 gen(42u + tid, 54u + tid);
+        std::uniform_int_distribution<unsigned long> dist(lower, upper);
+
+        unsigned long total_steps = 0;
+        const auto start = std::chrono::high_resolution_clock::now();
+
+        for (unsigned long i = 0; i < iterations; ) {
+            const unsigned long batch = std::min(static_cast<unsigned long>(COLLATZ_BATCH_SIZE), iterations - i);
+            unsigned long batch_steps = 0;
+
+            for (unsigned long j = 0; j < batch; ++j) {
+                unsigned long steps = 0;
+                primes(dist(gen), &steps);
                 batch_steps += steps;
             }
 
