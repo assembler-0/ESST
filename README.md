@@ -24,15 +24,38 @@ This stresser is designed specifically for **Linux** operating systems.
 
 The stresser is designed to run multiple instances of these tasks simultaneously per CPU thread, creating an unparalleled load.
 
+## Versions
+
+`esst` comes in two versions to suit different testing needs:
+
+* **`esst` (Full / Extreme):** The primary, highly aggressive version designed for maximum system saturation and stability testing. It utilizes all implemented stress modules at their highest intensity and concurrency. This version is intended to push hardware to its absolute breaking point.
+* **`esst-lite`:** A lighter version intended for more controlled or general benchmarking scenarios. This version uses `src/mainLite.cpp` (which you will implement to manage the workload differently, e.g., fewer concurrent tasks, shorter durations, or disabling certain aggressive modules like Rowhammer or excessive disk I/O by default) to provide a less disruptive but still effective load.
+
 ## Usage
 
-1.  **Compile the Assembly:** You will need an assembler (e.g., NASM or YASM) and a linker (e.g., `ld`) to compile the `.asm` files into an executable. A C/C++ wrapper might be required to manage threads and modules.
-2.  **Run from a Dedicated Terminal:** **Do not run `esst` directly in interactive console environments like Jupyter Notebooks or standard shell sessions without proper process management.** These environments are not designed to handle such extreme resource contention and will likely become unresponsive or crash.
-3.  **Use Process Management Tools:**
+1.  **Compile the Assembly:** You will need an assembler (e.g., NASM or YASM) and a linker (e.g., `ld`) to compile the `.asm` files into an executable. A C/C++ wrapper (`src/main.cpp` or `src/mainLite.cpp`) is required to manage threads and modules.
+2.  **Building `esst` (Full Version):**
+    ```bash
+    mkdir build_full
+    cd build_full
+    cmake ..
+    make
+    ```
+    This will compile `src/main.cpp` and create an executable named `esst`.
+3.  **Building `esst-lite` (Lite Version):**
+    ```bash
+    mkdir build_lite
+    cd build_lite
+    cmake -DBUILD_LITE_VERSION=ON ..
+    make
+    ```
+    This will compile `src/mainLite.cpp` and create an executable named `esst-lite`.
+4.  **Run from a Dedicated Terminal:** **Do not run `esst` or `esst-lite` directly in interactive console environments like Jupyter Notebooks or standard shell sessions without proper process management.** These environments are not designed to handle such extreme resource contention and will likely become unresponsive or crash.
+5.  **Use Process Management Tools:**
     * **`nohup`:** `nohup ./esst_executable > output.log 2>&1 &` (Runs in background, redirects output, keeps running after disconnect).
     * **`screen` or `tmux`:** Create persistent terminal sessions to start `esst`, detach, and reattach later to monitor (if the system isn't completely saturated).
-4.  **Redirect Output:** Always redirect stdout and stderr to a log file (`> output.log 2>&1`) for post-analysis, as live console output will likely be impossible to view.
-5.  **Implement Timeouts:** For robust benchmarking, consider implementing internal time limits for each stress module within your code to ensure controlled execution and allow for result collection.
+6.  **Redirect Output:** Always redirect stdout and stderr to a log file (`> output.log 2>&1`) for post-analysis, as live console output will likely be impossible to view.
+7.  **Implement Timeouts:** For robust benchmarking, consider implementing internal time limits for each stress module within your code to ensure controlled execution and allow for result collection.
 
 ### Monitoring
 
@@ -50,6 +73,10 @@ Due to the extreme load, traditional monitoring tools (like `top`, `htop`, `ls`)
 **Status at Reference Time:** Crashed/Did Not Finish (DNF) - The system completed approximately 1/6th of the total assigned tasks before experiencing a critical event (crash or unrecoverable state). VERSION v0.4
 
 This reference highlights the sheer intensity of `esst`. If your system can run for longer, it indicates higher stability and resilience under extreme conditions.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
 
 ## Disclaimer
 
