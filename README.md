@@ -47,7 +47,7 @@ Due to the extreme load, traditional monitoring tools (like `top`, `htop`, `ls`)
 **Threads:** 192 logical threads, 6 tasks per thread running simultaneously.
 
 **Reference Time:** 01:25:36 (1 hour, 25 minutes, 36 seconds)
-**Status at Reference Time:** Crashed/Did Not Finish (DNF) - The system completed approximately 1/6th of the total assigned tasks before experiencing a critical event (crash or unrecoverable state).
+**Status at Reference Time:** Crashed/Did Not Finish (DNF) - The system completed approximately 1/6th of the total assigned tasks before experiencing a critical event (crash or unrecoverable state). VERSION v0.4
 
 This reference highlights the sheer intensity of `esst`. If your system can run for longer, it indicates higher stability and resilience under extreme conditions.
 
