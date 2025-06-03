@@ -36,6 +36,10 @@
 | `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full%20Destruction-red) | Maximum system saturation |
 | `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy%20Pain-orange) | Higher intensity, less efficient |
 
+## 📜 License
+
+![GitHub license](https://img.shields.io/badge/license-MIT-green)
+
 ## ☠️ Disclaimer
 
 > ⚠️ This software comes with absolutely no warranty. By running ESST, you accept that:
