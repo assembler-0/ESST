@@ -35,3 +35,12 @@
 |---------|-------------|
 | `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full%20Destruction-red) | Maximum system saturation |
 | `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy%20Pain-orange) | Higher intensity, less efficient |
+
+## ☠️ Disclaimer
+
+> ⚠️ This software comes with absolutely no warranty. By running ESST, you accept that:
+> * Your CPU may become a paperweight
+> * Your RAM might develop PTSD
+> * Your cooling solution will cry
+> * Your sysadmin will hunt you down
+> * (My system works fine tho)
