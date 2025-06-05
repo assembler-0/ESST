@@ -1,6 +1,5 @@
 #include "core.hpp"
 #include "pcg_random.hpp"
-#include "kernel.h"
 #include <iostream>
 #include <random>
 #include <string>
@@ -17,6 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
+extern "C" void initHIP();
 class esst {
 public:
     void init() {
@@ -59,7 +59,7 @@ private:
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
-        {"gpu", [this]() { init(); }},
+        {"gpu", [this]() { initHIP(); }},
         {"aesenc", [this]() { initAESENC(); }},
         {"aesdec", [this]() { initAESDEC(); }}
     };

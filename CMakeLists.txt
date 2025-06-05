@@ -15,18 +15,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_HIP_STANDARD 20)
 set(CMAKE_HIP_STANDARD_REQUIRED ON)
 
-# Optimization flags
+# Optimization flags (Fixed CMAKE_FIP_FLAGS typo)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -mtune=native -Wall -pthread -Wextra -std=c++20")
+set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} -O3 -march=native -mtune=native -Wall -pthread -Wextra -std=c++20")
 
 # Enable NASM and HIP
 enable_language(ASM_NASM)
 enable_language(HIP)
 
 include_directories(include)
+include_directories(rocm/*.h)
 
 # Source files
 file(GLOB ASM_SRC "asm/*.asm")
-file(GLOB HIP_SRC "rocm/*.hip.cpp")  # You can also use *.hip or *.cpp, just be consistent
+file(GLOB HIP_SRC "rocm/*.hip.cpp")  # Your HIP source files
 file(GLOB HIP_HEADERS "rocm/*.h")
 
 if(BUILD_OLD_VERSION)
@@ -37,9 +39,17 @@ else()
     set(MAIN_SOURCE_FILE "src/main.cpp")
 endif()
 
-# Add executable
-add_executable(${EXECUTABLE_NAME} ${MAIN_SOURCE_FILE} ${ASM_SRC})
+# Add executable - INCLUDE HIP_SRC HERE
+add_executable(${EXECUTABLE_NAME}
+        ${MAIN_SOURCE_FILE}
+        ${ASM_SRC}
+        ${HIP_SRC}  # This was missing!
+)
+
 set_property(SOURCE ${ASM_SRC} PROPERTY LANGUAGE ASM_NASM)
+
+# Set HIP files to use HIP language
+set_property(SOURCE ${HIP_SRC} PROPERTY LANGUAGE HIP)
 
 target_include_directories(${EXECUTABLE_NAME} PRIVATE rocm/ include/)
 
