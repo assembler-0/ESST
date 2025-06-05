@@ -1,5 +1,6 @@
 #include "core.hpp"
 #include "pcg_random.hpp"
+#include "kernel.h"
 #include <iostream>
 #include <random>
 #include <string>
@@ -58,6 +59,7 @@ private:
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
+        {"gpu", [this]() { init(); }},
         {"aesenc", [this]() { initAESENC(); }},
         {"aesdec", [this]() { initAESDEC(); }}
     };
