@@ -90,30 +90,18 @@ __global__ void computationalTest(float* __restrict__ data, int size, int iterat
     }
 
     for (int iter = 0; iter < iterations; iter++) {
-        // Data-dependent branching to create true divergence
-        int branch_selector = static_cast<int>(fabsf(r[0])) % 16;
-
-        // Increased complexity within each branch
-        if (branch_selector < 2) { // Transcendental hell
             for (int i = 0; i < 31; i++) r[i+1] = fmaf(sinf(r[i]), cosf(r[i+1] * 1.1f), tanf(r[i] * 0.9f));
-        } else if (branch_selector < 4) { // Exponential/log chaos
             for (int i = 0; i < 31; i++) r[i+1] = fmaf(expf(r[i] * 0.1f), logf(fabsf(r[i+1]) + 1.0f), r[i]);
-        } else if (branch_selector < 6) { // Power/root nightmare
             for (int i = 0; i < 31; i++) r[i+1] = fmaf(powf(fabsf(r[i]) + 1.0f, 1.2f), sqrtf(fabsf(r[i+1]) + 1.0f), r[i]);
-        } else if (branch_selector < 8) { // Hyperbolic functions
             for (int i = 0; i < 31; i++) r[i+1] = sinhf(r[i] * 0.1f) + coshf(r[i+1] * 0.1f) + tanhf(r[i]);
-        } else if (branch_selector < 10) { // Inverse trig functions
             for (int i = 0; i < 31; i++) {
                 float val = fmaxf(-0.99f, fminf(0.99f, r[i] * 0.01f));
                 r[i+1] = asinf(val) + acosf(val) + atanf(r[i+1]);
             }
-        } else { // Mixed chaos
             for (int i = 0; i < 31; i++) {
                 r[i+1] = fmaf(r[i], sinf(r[i+1]), fmaf(r[i+1], cosf(r[i]), expf(r[i] * 0.01f)));
             }
-        }
 
-        // More tangled inter-register dependencies
         for (int i = 0; i < 32; i++) {
             r[i] = fmaf(r[i], r[(i + 3) % 32], r[(i + 7) % 32]);
         }
@@ -126,41 +114,42 @@ __global__ void computationalTest(float* __restrict__ data, int size, int iterat
 
 // Stresses atomic units with higher contention and more operations
 __global__ void atomicTest(int* __restrict__ counters,
-                           float* __restrict__ float_data,
-                           unsigned long long* __restrict__ ull_data,
-                           int num_counters, int iterations) {
+                               float* __restrict__ float_data,
+                               unsigned long long* __restrict__ ull_data,
+                               int iterations) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int warp_id = tid / 32;
 
     for (int i = 0; i < iterations; i++) {
-        // Increased contention: multiple warps target the same counters
-        int counter_id = (warp_id + i) % (num_counters / 4);
+        // High contention - many threads target same locations
+        int contested_int = (warp_id + i) % 64;          // Only 64 locations for int atomics
+        int contested_float = (tid + i) % 128;           // 128 locations for float atomics
+        int contested_ull = (tid * 2 + i) % 256;         // 256 locations for ull atomics
 
-        // More atomic operations per iteration
-        atomicAdd(&counters[counter_id], 1);
-        atomicMax(&counters[counter_id], tid);
-        atomicExch(&counters[counter_id], (counters[counter_id] + tid) % 50000);
-        atomicSub(&counters[counter_id], 1);
-        atomicMin(&counters[counter_id], tid % 1000);
+        // Pure atomic operations - exactly 15 per thread per iteration
+        atomicAdd(&counters[contested_int], 1);                    // 1
+        atomicSub(&counters[contested_int], 1);                    // 2
+        atomicMax(&counters[contested_int], tid);                  // 3
+        atomicMin(&counters[contested_int], tid);                  // 4
+        atomicExch(&counters[contested_int], tid + i);             // 5
 
-        // Increased float atomic pressure
-        int float_id = (tid + i) % num_counters;
-        atomicAdd(&float_data[float_id], 1.5f);
-        atomicExch(&float_data[float_id], fmaf(float_data[float_id], 1.01f, 0.1f));
+        atomicAdd(&float_data[contested_float], 1.0f);             // 6
+        atomicExch(&float_data[contested_float], 2.5f);            // 7
 
-        // Increased 64-bit atomic pressure
-        int ull_id = (tid * 5 + i) % num_counters;
-        atomicAdd(&ull_data[ull_id], 1ULL);
-        atomicMax(&ull_data[ull_id], static_cast<unsigned long long>(tid) * i);
-        atomicExch(&ull_data[ull_id], ull_data[ull_id] + tid + i);
+        atomicAdd(&ull_data[contested_ull], 1ULL);                 // 8
+        atomicMax(&ull_data[contested_ull], (unsigned long long)tid); // 9
+        atomicExch(&ull_data[contested_ull], (unsigned long long)(tid + i)); // 10
 
-        // A second wave of high-contention atomics
-        for (int j = 0; j < 8; j++) {
-            int contested_id = (i + j) % (num_counters / 16);
-            atomicAdd(&counters[contested_id], 1);
-        }
+        // Ultra-high contention - all threads in warp hit same location
+        int ultra_contested = i % 8;
+        atomicAdd(&counters[ultra_contested], 1);                  // 11
+        atomicAdd(&counters[ultra_contested], 1);                  // 12
+        atomicAdd(&counters[ultra_contested], 1);                  // 13
+        atomicAdd(&counters[ultra_contested], 1);                  // 14
+        atomicAdd(&counters[ultra_contested], 1);                  // 15
     }
 }
+
 
 class GPUstress {
 private:
@@ -168,9 +157,9 @@ private:
     GPUSpecs gpu_specs;
 
     // UPPED a lot, Reference scores adjusted for high-end GPUs (e.g., RTX 4090 / RX 7900 XTX)
-    const double REF_MEMORY_OPS = 1.2e11;
-    const double REF_COMPUTE_OPS = 4.9e21;
-    const double REF_ATOMIC_OPS = 7.2e19;
+    const double REF_MEMORY_OPS = 2.3e11;
+    const double REF_COMPUTE_OPS = 1.1e13;
+    const double REF_ATOMIC_OPS = 3.4e10;
     const double REF_BANDWIDTH = 1008;
 
 public:
@@ -237,7 +226,7 @@ public:
 
     // UPDATED with better op counting
     BenchmarkResult initComputationalTest(const int iterations) const {
-        constexpr int OPS_PER_THREAD_PER_ITER = 214;
+        constexpr int OPS_PER_THREAD_PER_ITER = 13332;
         const size_t size = 1024 * 1024;
         float* d_data;
         hipMalloc(&d_data, size * sizeof(float));
@@ -246,7 +235,7 @@ public:
         hipMemcpy(d_data, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
 
         dim3 block(gpu_specs.max_threads_per_block);
-        dim3 grid(gpu_specs.max_blocks_per_grid);
+        dim3 grid(std::min(gpu_specs.max_blocks_per_grid, gpu_specs.compute_units * 8));
 
         const auto start = std::chrono::high_resolution_clock::now();
         computationalTest<<<grid, block>>>(d_data, size, iterations);
@@ -264,31 +253,45 @@ public:
 
     // UPDATED with better op counting
     BenchmarkResult initAtomicTest(int iterations) {
-        constexpr int OPS_PER_THREAD_PER_ITER = 20;
-        int num_counters = 4096;
-        int* d_counters; float* d_float_data; unsigned long long* d_ull_data;
+        constexpr int ATOMIC_OPS_PER_THREAD_PER_ITER = 15; // Exactly 15 atomic ops
+
+        // Smaller arrays since we're creating high contention
+        int num_counters = 1024;  // Reduced for more contention
+
+        int* d_counters;
+        float* d_float_data;
+        unsigned long long* d_ull_data;
+
         hipMalloc(&d_counters, num_counters * sizeof(int));
         hipMalloc(&d_float_data, num_counters * sizeof(float));
         hipMalloc(&d_ull_data, num_counters * sizeof(unsigned long long));
+
         hipMemset(d_counters, 0, num_counters * sizeof(int));
         hipMemset(d_float_data, 0, num_counters * sizeof(float));
         hipMemset(d_ull_data, 0, num_counters * sizeof(unsigned long long));
 
+        // Reasonable grid size
+        int reasonable_blocks = std::min(gpu_specs.compute_units * 8, 1024);
         dim3 block(gpu_specs.max_threads_per_block);
-        dim3 grid(gpu_specs.max_blocks_per_grid);
+        dim3 grid(reasonable_blocks);
 
         const auto start = std::chrono::high_resolution_clock::now();
-        atomicTest<<<grid, block>>>(d_counters, d_float_data, d_ull_data, num_counters, iterations);
+        atomicTest<<<grid, block>>>(d_counters, d_float_data, d_ull_data, iterations);
         hipDeviceSynchronize();
         const auto end = std::chrono::high_resolution_clock::now();
 
         const double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        const double total_ops = static_cast<double>(grid.x) * block.x * iterations * OPS_PER_THREAD_PER_ITER; // Recalculated op count
-        const double ops_per_second = total_ops / (time_ms / 1000.0);
-        const int score = std::min(1000, static_cast<int>(1000 * ops_per_second / REF_ATOMIC_OPS));
+        const double total_atomic_ops = static_cast<double>(grid.x) * block.x * iterations * ATOMIC_OPS_PER_THREAD_PER_ITER;
+        const double atomic_ops_per_second = total_atomic_ops / (time_ms / 1000.0);
 
-        hipFree(d_counters); hipFree(d_float_data); hipFree(d_ull_data);
-        return {"Atomic", time_ms, ops_per_second, 0.0, score, score > 300, (ops_per_second / REF_ATOMIC_OPS) * 100.0};
+        const int score = std::min(1000, static_cast<int>(1000 * atomic_ops_per_second / REF_ATOMIC_OPS));
+
+        hipFree(d_counters);
+        hipFree(d_float_data);
+        hipFree(d_ull_data);
+
+        return {"Atomic", time_ms, atomic_ops_per_second, 0.0, score, score > 200,
+                (atomic_ops_per_second / REF_ATOMIC_OPS) * 100.0};
     }
 
     // UPDATED to use the much heavier chaos test
@@ -311,9 +314,9 @@ public:
         std::cout << std::left << std::setw(20) << "Test category"
                   << std::right << std::setw(12) << "Time (ms)"
                   << std::setw(13) << "Ops/sec"
-                  << std::setw(10) << "BW/Deg(%)"
+                  << std::setw(10) << "BW"
                   << std::setw(8) << "Score"
-                  << std::setw(10) << "Reference %" << "\n";
+                  << std::setw(10) << "REF %" << "\n";
         std::cout << std::string(73, '=') << "\n";
 
         for (const auto& r : results) {
@@ -332,7 +335,7 @@ public:
         if (results.empty()) return;
 
         double weighted_score = 0.0;
-        const std::vector<double> weights = {0.33, 0.33, 0.34};
+        const std::vector<double> weights = {0.4, 0.4, 0.2};
 
         for (size_t i = 0; i < results.size(); i++) {
             weighted_score += weights[i] * results[i].score;

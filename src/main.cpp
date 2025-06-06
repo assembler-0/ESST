@@ -422,7 +422,7 @@ private:
         unsigned long nuke_iterations_aes = 20 * intensity;
         unsigned long nuke_iterations_disk = 20 * intensity;
         unsigned long nuke_iterations_mem = 20 * intensity;
-        unsigned long nuke_iterations_gpu = 10000 * intensity;
+        unsigned long nuke_iterations_gpu = 50000 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
