@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-extern "C" void initHIP();
+extern "C" void initGPU(int iterations, int duration);
 class esst {
 public:
     void init() {
@@ -48,7 +48,7 @@ private:
 
     static constexpr auto APP_VERSION = "0.5";
     static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
-    static constexpr int COLLATZ_BATCH_SIZE = 100000;
+    static constexpr int COLLATZ_BATCH_SIZE = 1000-00;
 
     const std::unordered_map<std::string, std::function<void()>> command_map = {
         {"exit", [this]() { running = false; }},
@@ -59,7 +59,7 @@ private:
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
-        {"gpu", [this]() { initHIP(); }},
+        {"gpu", [this]() { initGPUStress(); }},
         {"aesenc", [this]() { initAESENC(); }},
         {"aesdec", [this]() { initAESDEC(); }}
     };
@@ -100,10 +100,25 @@ private:
                   << "aesenc   - Vetor AES Encrypt stressing\n"
                   << "aesdec   - Vetor AES Decrypt stressing\n"
                   << "disk   - Disk stressing\n"
+                  << "gpu   - GPU stressingwith HIP\n"
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
+    void initGPUStress (std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> duration_o = std::nullopt){
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        if (!duration_o.has_value()) {
+            std::cout << "Thermal stress duration (s)?: ";
+            if (!(std::cin >> duration_o.emplace())) return;
+        }
+        const unsigned long iterations = iterations_o.value();
+        const unsigned long duration = duration_o.value();
+        if (iterations_o.value() = 0) return;
+        initGPU(iterations, duration);
 
+    }
     void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
@@ -412,6 +427,8 @@ private:
         unsigned long nuke_iterations_aes = 20 * intensity;
         unsigned long nuke_iterations_disk = 20 * intensity;
         unsigned long nuke_iterations_mem = 20 * intensity;
+        unsigned long nuke_iterations_gpu = 10000 * intensity;
+        unsigned long nuke_thermal_duration_gpu = 60 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
@@ -423,6 +440,7 @@ private:
         initAESENC(nuke_iterations_aes, block_size);
         initAESDEC(nuke_iterations_aes, block_size);
         initDiskWrite(nuke_iterations_disk);
+        initGPUStress(nuke_iterations_gpu, nuke_thermal_duration_gpu);
         const auto duration = std::chrono::high_resolution_clock::now() - start;
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
