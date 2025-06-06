@@ -7,14 +7,14 @@
 ![Danger Level](https://img.shields.io/badge/DANGER-Hardware%20Damage%20Risk-orange)
 ![CPU Stress](https://img.shields.io/badge/CPU%20Stress-Maximum%20Thermals-red)
 ![RAM Stress](https://img.shields.io/badge/RAM%20Stress-Rowhammer%20Enabled-critical)
-
+![GPU Stress](https://img.shields.io/badge/GPU%20Stress-ROCm%20HIP%20Intergration-critical)
 > ⚠️ **WARNING: POTENTIAL HARDWARE DAMAGE**  
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling, power.
 
 ## ✅ Current version
 
-![Version](https://img.shields.io/badge/Current%20Version-v0.5-blue)
+![Version](https://img.shields.io/badge/Current%20Version-v0.6-blue)
 
 ## 🐧 Linux Only
 ![Linux](https://img.shields.io/badge/Compatibility-Linux%20Only-important)
