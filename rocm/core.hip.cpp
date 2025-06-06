@@ -4,361 +4,348 @@
 #include <random>
 #include <chrono>
 #include <iomanip>
+#include <algorithm>
+#include <cmath>
+#include <thread>
 
+// Data structure for storing benchmark results
 struct BenchmarkResult {
     std::string test_name;
     double execution_time_ms;
     double operations_per_second;
-    double bandwidth_gbps;
+    double bandwidth_gbps; // Also used for performance degradation % in thermal test
     int score;
     bool passed;
+    double reference;
 };
 
+// Data structure for storing detected GPU specifications
+struct GPUSpecs {
+    int compute_units;
+    int max_threads_per_block;
+    int max_blocks_per_grid;
+    size_t global_mem_size;
+    size_t shared_mem_size;
+    int warp_size;
+    int max_registers_per_block;
+    double memory_clock_mhz;
+    double core_clock_mhz;
+};
 
+__global__ void memoryTest(float* __restrict__ data,
+                           float* __restrict__ data2,
+                           float* __restrict__ data3,
+                           float* __restrict__ data4,
+                           const int size, const int iterations) {
+    const int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
-// Your existing kernel functions here...
-__global__ void memory_bandwidth_stress(float* data, int size, int iterations) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    extern __shared__ float shared_data[];
+    const int local_id = threadIdx.x;
+
+    shared_data[local_id] = data[tid % size];
+    __syncthreads();
+
     for (int i = 0; i < iterations; i++) {
-        int random_stride = (tid * 13 + i * 7) % size;
-        data[random_stride] = data[random_stride] * 1.001f + 0.001f;
+        // More complex and unpredictable address patterns
+        int pattern1 = (tid * 31 + i * 17) % size;
+        int pattern2 = (tid * 41 + i * 23) % size;
+        int pattern3 = (tid * 53 + i * 29) % size;
+        int pattern4 = (tid * 61 + i * 37) % size;
+
+        float val1 = data[pattern1];
+        float val2 = data2[pattern2];
+        float val3 = data3[pattern3];
+        float val4 = data4[pattern4];
+
+        // Increased computational dependency and shared memory use
+        float shared_val = shared_data[(local_id + i) % blockDim.x];
+        float result = fmaf(val1, val2, shared_val);
+        result = fmaf(result, val3, val4);
+
+        shared_data[local_id] = result;
+        __syncthreads();
+
+        // Write back results with dependencies on other threads' work
+        data[pattern1] = fmaf(result, shared_data[(local_id + 17) % blockDim.x], val3);
+        data2[pattern2] = fmaf(val2, shared_data[(local_id + 31) % blockDim.x], val4);
+        data3[pattern3] = fmaf(val3, shared_data[(local_id + 47) % blockDim.x], val1);
+        data4[pattern4] = fmaf(val4, shared_data[(local_id + 61) % blockDim.x], val2);
+
+        // More intense cache-trashing loop
+        for (int j = 0; j < 12; j++) {
+            int chaos_idx = (tid + i * 13 + j * 19) % size;
+            data[chaos_idx] = fmaf(data[chaos_idx], 1.000001f, 0.000001f);
+        }
         __syncthreads();
     }
 }
 
-__global__ void divergent_branching_stress(float* data, int size, int iterations) {
+// Stresses ALUs with data-dependent branching and heavier, more complex math
+__global__ void computationalTest(float* __restrict__ data, int size, int iterations) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    for (int i = 0; i < iterations; i++) {
-        float value = data[tid % size];
-        if (tid % 2 == 0) {
-            for (int j = 0; j < 100; j++) {
-                value = sqrtf(value * 1.1f + j);
+
+    float r[32]; // Maximize register usage
+    for (int i = 0; i < 32; i++) {
+        r[i] = data[(tid + i * 32) % size];
+    }
+
+    for (int iter = 0; iter < iterations; iter++) {
+        // Data-dependent branching to create true divergence
+        int branch_selector = static_cast<int>(fabsf(r[0])) % 16;
+
+        // Increased complexity within each branch
+        if (branch_selector < 2) { // Transcendental hell
+            for (int i = 0; i < 31; i++) r[i+1] = fmaf(sinf(r[i]), cosf(r[i+1] * 1.1f), tanf(r[i] * 0.9f));
+        } else if (branch_selector < 4) { // Exponential/log chaos
+            for (int i = 0; i < 31; i++) r[i+1] = fmaf(expf(r[i] * 0.1f), logf(fabsf(r[i+1]) + 1.0f), r[i]);
+        } else if (branch_selector < 6) { // Power/root nightmare
+            for (int i = 0; i < 31; i++) r[i+1] = fmaf(powf(fabsf(r[i]) + 1.0f, 1.2f), sqrtf(fabsf(r[i+1]) + 1.0f), r[i]);
+        } else if (branch_selector < 8) { // Hyperbolic functions
+            for (int i = 0; i < 31; i++) r[i+1] = sinhf(r[i] * 0.1f) + coshf(r[i+1] * 0.1f) + tanhf(r[i]);
+        } else if (branch_selector < 10) { // Inverse trig functions
+            for (int i = 0; i < 31; i++) {
+                float val = fmaxf(-0.99f, fminf(0.99f, r[i] * 0.01f));
+                r[i+1] = asinf(val) + acosf(val) + atanf(r[i+1]);
             }
-        } else if (tid % 3 == 0) {
-            for (int j = 0; j < 150; j++) {
-                value = logf(value + j * 0.01f);
-            }
-        } else if (tid % 5 == 0) {
-            for (int j = 0; j < 200; j++) {
-                value = sinf(value * j);
-            }
-        } else {
-            for (int j = 0; j < 250; j++) {
-                value = powf(value, 1.01f);
+        } else { // Mixed chaos
+            for (int i = 0; i < 31; i++) {
+                r[i+1] = fmaf(r[i], sinf(r[i+1]), fmaf(r[i+1], cosf(r[i]), expf(r[i] * 0.01f)));
             }
         }
-        data[tid % size] = value;
+
+        // More tangled inter-register dependencies
+        for (int i = 0; i < 32; i++) {
+            r[i] = fmaf(r[i], r[(i + 3) % 32], r[(i + 7) % 32]);
+        }
     }
+
+    float final_result = 0.0f;
+    for (int i = 0; i < 32; i++) final_result += r[i];
+    data[tid % size] = final_result;
 }
 
-__global__ void register_pressure_stress(float* data, int size) {
+// Stresses atomic units with higher contention and more operations
+__global__ void atomicTest(int* __restrict__ counters,
+                           float* __restrict__ float_data,
+                           unsigned long long* __restrict__ ull_data,
+                           int num_counters, int iterations) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    float r1 = data[tid % size];
-    float r2 = r1 * 1.1f;
-    float r3 = r2 + 2.2f;
-    float r4 = r3 * r1;
-    float r5 = r4 + r2;
-    float r6 = r5 * r3;
-    float r7 = r6 + r4;
-    float r8 = r7 * r5;
-    float r9 = r8 + r6;
-    float r10 = r9 * r7;
-    float r11 = r10 + r8;
-    float r12 = r11 * r9;
-    float r13 = r12 + r10;
-    float r14 = r13 * r11;
-    float r15 = r14 + r12;
-    float r16 = r15 * r13;
+    int warp_id = tid / 32;
 
-    float result = sqrtf(r1 + r2) * logf(r3 + r4) +
-                   sinf(r5 * r6) + cosf(r7 + r8) +
-                   tanf(r9 * r10) + expf(r11 + r12) +
-                   powf(r13, r14) + fabsf(r15 * r16);
-
-    data[tid % size] = result;
-}
-
-__global__ void atomic_stress(int* counters, int num_counters, int iterations) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
     for (int i = 0; i < iterations; i++) {
-        int counter_id = (tid + i) % num_counters;
+        // Increased contention: multiple warps target the same counters
+        int counter_id = (warp_id + i) % (num_counters / 4);
+
+        // More atomic operations per iteration
         atomicAdd(&counters[counter_id], 1);
         atomicMax(&counters[counter_id], tid);
-        atomicMin(&counters[counter_id], tid % 100);
-        atomicExch(&counters[counter_id], (counters[counter_id] + 1) % 1000);
+        atomicExch(&counters[counter_id], (counters[counter_id] + tid) % 50000);
+        atomicSub(&counters[counter_id], 1);
+        atomicMin(&counters[counter_id], tid % 1000);
+
+        // Increased float atomic pressure
+        int float_id = (tid + i) % num_counters;
+        atomicAdd(&float_data[float_id], 1.5f);
+        atomicExch(&float_data[float_id], fmaf(float_data[float_id], 1.01f, 0.1f));
+
+        // Increased 64-bit atomic pressure
+        int ull_id = (tid * 5 + i) % num_counters;
+        atomicAdd(&ull_data[ull_id], 1ULL);
+        atomicMax(&ull_data[ull_id], static_cast<unsigned long long>(tid) * i);
+        atomicExch(&ull_data[ull_id], ull_data[ull_id] + tid + i);
+
+        // A second wave of high-contention atomics
+        for (int j = 0; j < 8; j++) {
+            int contested_id = (i + j) % (num_counters / 16);
+            atomicAdd(&counters[contested_id], 1);
+        }
     }
 }
 
-class GPUStressTester {
+class GPUstress {
 private:
     std::vector<BenchmarkResult> results;
+    GPUSpecs gpu_specs;
 
-    // Reference scores for normalization (based on RTX 4090/RX 7900XTX level performance)
-    const double REF_MEMORY_OPS = 5e11;     // 500B ops/sec (much higher for modern GPUs)
-    const double REF_COMPUTE_OPS = 1e11;    // 100B ops/sec (reflects modern compute units)
-    const double REF_ATOMIC_OPS = 1e10;      // 5B ops/sec (modern atomic throughput)
-    const double REF_BANDWIDTH = 1024.0;    // 1TB/s theoretical peak
+    // UPPED a lot, Reference scores adjusted for high-end GPUs (e.g., RTX 4090 / RX 7900 XTX)
+    const double REF_MEMORY_OPS = 1.2e11;
+    const double REF_COMPUTE_OPS = 4.9e21;
+    const double REF_ATOMIC_OPS = 7.2e19;
+    const double REF_BANDWIDTH = 1008;
 
 public:
-    // Memory bandwidth stress with timing
-    __device__ void memory_bandwidth_stress_kernel(float* data, int size, int iterations) {
-        int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    void detect_gpu_specifications() {
+        hipDeviceProp_t prop;
+        hipGetDeviceProperties(&prop, 0);
 
-        for (int i = 0; i < iterations; i++) {
-            int random_stride = (tid * 13 + i * 7) % size;
-            data[random_stride] = data[random_stride] * 1.001f + 0.001f;
-            __syncthreads();
-        }
+        gpu_specs.compute_units = prop.multiProcessorCount;
+        gpu_specs.max_threads_per_block = prop.maxThreadsPerBlock;
+        gpu_specs.max_blocks_per_grid = prop.maxGridSize[0];
+        gpu_specs.global_mem_size = prop.totalGlobalMem;
+        gpu_specs.shared_mem_size = prop.sharedMemPerBlock;
+        gpu_specs.warp_size = prop.warpSize;
+        gpu_specs.max_registers_per_block = prop.regsPerBlock;
+        gpu_specs.memory_clock_mhz = prop.memoryClockRate / 1000.0;
+        gpu_specs.core_clock_mhz = prop.clockRate / 1000.0;
+
+        std::cout << "=== GPU SPECIFICATIONS DETECTED ===\n";
+        std::cout << "GPU: " << prop.name << "\n";
+        std::cout << "Compute Units: " << gpu_specs.compute_units << "\n";
+        std::cout << "Global Memory: " << gpu_specs.global_mem_size / (1024*1024*1024) << " GB\n";
+        std::cout << "Shared Memory/Block: " << gpu_specs.shared_mem_size / 1024 << " KB\n";
+        std::cout << "Core Clock: " << gpu_specs.core_clock_mhz << " MHz\n\n";
     }
 
-    BenchmarkResult benchmark_memory_bandwidth(float* d_data, int size, int iterations) {
-        dim3 block(256);
-        dim3 grid((size + block.x - 1) / block.x);
+    // UPDATED with better op counting
+    BenchmarkResult initMemoryTest(const int iterations) const {
+        constexpr int OPS_PER_THREAD_PER_ITER = 36;
+        const size_t size = std::min(static_cast<size_t>(64 * 1024 * 1024), gpu_specs.global_mem_size / 16);
 
-        // Warm up
-        memory_bandwidth_stress<<<grid, block>>>(d_data, size, 10);
-        hipDeviceSynchronize();
+        float *d_data1, *d_data2, *d_data3, *d_data4;
+        hipMalloc(&d_data1, size * sizeof(float)); hipMalloc(&d_data2, size * sizeof(float));
+        hipMalloc(&d_data3, size * sizeof(float)); hipMalloc(&d_data4, size * sizeof(float));
 
-        auto start = std::chrono::high_resolution_clock::now();
-
-        memory_bandwidth_stress<<<grid, block>>>(d_data, size, iterations);
-        hipDeviceSynchronize();
-
-        auto end = std::chrono::high_resolution_clock::now();
-
-        double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        long long total_ops = (long long)size * iterations * 2; // read + write
-        double ops_per_second = (total_ops / time_ms) * 1000.0;
-        double bandwidth_gbps = (total_ops * sizeof(float) / time_ms) / 1e6; // GB/s
-
-        int score = std::min(1000, (int)(1000 * ops_per_second / REF_MEMORY_OPS));
-
-        return {
-            "Memory Bandwidth",
-            time_ms,
-            ops_per_second,
-            bandwidth_gbps,
-            score,
-            score > 50 // Pass if > 5% of reference (much stricter)
-        };
-    }
-
-    BenchmarkResult benchmark_compute_intensive(float* d_data, int size, int iterations) {
-        dim3 block(256);
-        dim3 grid((size + block.x - 1) / block.x);
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        divergent_branching_stress<<<grid, block>>>(d_data, size, iterations);
-        hipDeviceSynchronize();
-
-        auto end = std::chrono::high_resolution_clock::now();
-
-        double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        long long total_ops = (long long)size * iterations * 100; // approximate ops count
-        double ops_per_second = (total_ops / time_ms) * 1000.0;
-
-        int score = std::min(1000, (int)(1000 * ops_per_second / REF_COMPUTE_OPS));
-
-        return {
-            "Compute Intensive",
-            time_ms,
-            ops_per_second,
-            0.0,
-            score,
-            score > 25 // Much stricter pass criteria
-        };
-    }
-
-    BenchmarkResult benchmark_atomic_operations(int* d_counters, int num_counters, int iterations) {
-        dim3 block(256);
-        dim3 grid(1024); // More threads for atomic stress
-
-        auto start = std::chrono::high_resolution_clock::now();
-
-        atomic_stress<<<grid, block>>>(d_counters, num_counters, iterations);
-        hipDeviceSynchronize();
-
-        auto end = std::chrono::high_resolution_clock::now();
-
-        double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
-        long long total_ops = (long long)grid.x * block.x * iterations * 4; // 4 atomic ops per iteration
-        double ops_per_second = (total_ops / time_ms) * 1000.0;
-
-        int score = std::min(1000, (int)(1000 * ops_per_second / REF_ATOMIC_OPS));
-
-        return {
-            "Atomic Operations",
-            time_ms,
-            ops_per_second,
-            0.0,
-            score,
-            score > 10 // Very strict for atomic operations
-        };
-    }
-
-    // Temperature and power monitoring (if available)
-    BenchmarkResult thermal_stress_test(float* d_data, int size, int duration_seconds) {
-        auto start_time = std::chrono::high_resolution_clock::now();
-        auto end_time = start_time + std::chrono::seconds(duration_seconds);
-
-        dim3 block(256);
-        dim3 grid((size + block.x - 1) / block.x);
-
-        int iterations = 0;
-        double max_temp = 0.0;
-
-        while (std::chrono::high_resolution_clock::now() < end_time) {
-            // Run all stress kernels
-            memory_bandwidth_stress<<<grid, block>>>(d_data, size, 100);
-            register_pressure_stress<<<grid, block>>>(d_data, size);
-
-            hipDeviceSynchronize();
-            iterations++;
-
-            // Check temperature if supported
-            // This would require vendor-specific APIs
-        }
-
-        double actual_time = std::chrono::duration<double>(
-            std::chrono::high_resolution_clock::now() - start_time).count();
-
-        double ops_per_second = iterations / actual_time;
-        int score = (actual_time >= duration_seconds * 0.95) ? 1000 :
-                   (int)(1000 * actual_time / duration_seconds);
-
-        return {
-            "Thermal Stress",
-            actual_time * 1000,
-            ops_per_second,
-            0.0,
-            score,
-            score > 950 // Pass if ran for >95% of target time
-        };
-    }
-
-    void run_comprehensive_benchmark(int iterations = 1000, int thermal_duration = 30) {
-        const int size = 1024 * 1024;
-
-        // Allocate GPU memory
-        float* d_data;
-        int* d_counters;
-        hipMalloc(&d_data, size * sizeof(float));
-        hipMalloc(&d_counters, 1024 * sizeof(int));
-
-        // Initialize data
         std::vector<float> h_data(size);
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution<float> dis(0.1f, 100.0f);
+        std::generate(h_data.begin(), h_data.end(), []() { return static_cast<float>(std::rand()) / RAND_MAX; });
+        hipMemcpy(d_data1, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
+        hipMemcpy(d_data2, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
+        hipMemcpy(d_data3, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
+        hipMemcpy(d_data4, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
 
-        for (int i = 0; i < size; i++) {
-            h_data[i] = dis(gen);
-        }
+        int block_size = std::min((int)gpu_specs.max_threads_per_block, static_cast<int>(gpu_specs.shared_mem_size / sizeof(float)));
+        block_size = (block_size / gpu_specs.warp_size) * gpu_specs.warp_size;
+        if (block_size == 0) block_size = gpu_specs.warp_size;
 
-        hipMemcpy(d_data, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
-        hipMemset(d_counters, 0, 1024 * sizeof(int));
+        dim3 block(block_size);
+        dim3 grid(std::min(gpu_specs.max_blocks_per_grid, gpu_specs.compute_units * 8));
+        size_t shared_mem_size = block.x * sizeof(float);
 
-        std::cout << "=== GPU Comprehensive Stress Test & Benchmark ===\n\n";
+        const auto start = std::chrono::high_resolution_clock::now();
+        memoryTest<<<grid, block, shared_mem_size>>>(d_data1, d_data2, d_data3, d_data4, size, iterations);
+        hipDeviceSynchronize();
+        const auto end = std::chrono::high_resolution_clock::now();
 
-        // Run individual benchmarks
-        results.push_back(benchmark_memory_bandwidth(d_data, size, iterations));
-        results.push_back(benchmark_compute_intensive(d_data, size, iterations / 10));
-        results.push_back(benchmark_atomic_operations(d_counters, 1024, iterations));
-        results.push_back(thermal_stress_test(d_data, size, thermal_duration));
+        const double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+        const double total_ops = static_cast<double>(grid.x) * block.x * iterations * OPS_PER_THREAD_PER_ITER;
+        const double ops_per_second = total_ops / (time_ms / 1000.0);
+        const double bandwidth_gbps = (total_ops * sizeof(float) / time_ms) / 1e6;
+        const int score = std::min(1000, static_cast<int>(1000 * ops_per_second / REF_MEMORY_OPS));
 
-        // Print results
-        print_results();
-
-        // Calculate overall score
-        calculate_overall_score();
-
-        // Cleanup
-        hipFree(d_data);
-        hipFree(d_counters);
+        hipFree(d_data1); hipFree(d_data2); hipFree(d_data3); hipFree(d_data4);
+        return {"Memory", time_ms, ops_per_second, bandwidth_gbps, score, score > 100, (bandwidth_gbps / REF_BANDWIDTH) * 100.0};
     }
 
-    void print_results() {
-        std::cout << std::setw(20) << "Test Name"
-                  << std::setw(12) << "Time (ms)"
-                  << std::setw(15) << "Ops/sec"
-                  << std::setw(12) << "BW (GB/s)"
-                  << std::setw(8) << "Score"
-                  << std::setw(8) << "Status" << "\n";
-        std::cout << std::string(75, '-') << "\n";
+    // UPDATED with better op counting
+    BenchmarkResult initComputationalTest(const int iterations) const {
+        constexpr int OPS_PER_THREAD_PER_ITER = 214;
+        const size_t size = 1024 * 1024;
+        float* d_data;
+        hipMalloc(&d_data, size * sizeof(float));
+        std::vector<float> h_data(size);
+        std::generate(h_data.begin(), h_data.end(), [](){ return static_cast<float>(rand()) / RAND_MAX * 10.f; });
+        hipMemcpy(d_data, h_data.data(), size * sizeof(float), hipMemcpyHostToDevice);
 
-        for (const auto& result : results) {
-            std::cout << std::setw(20) << result.test_name
-                      << std::setw(12) << std::fixed << std::setprecision(2) << result.execution_time_ms
-                      << std::setw(15) << std::scientific << std::setprecision(2) << result.operations_per_second
-                      << std::setw(12) << std::fixed << std::setprecision(1) << result.bandwidth_gbps
-                      << std::setw(8) << result.score
-                      << std::setw(8) << (result.passed ? "PASS" : "FAIL") << "\n";
+        dim3 block(gpu_specs.max_threads_per_block);
+        dim3 grid(gpu_specs.max_blocks_per_grid);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+        computationalTest<<<grid, block>>>(d_data, size, iterations);
+        hipDeviceSynchronize();
+        const auto end = std::chrono::high_resolution_clock::now();
+
+        const double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+        const double total_ops = static_cast<double>(grid.x) * block.x * iterations * OPS_PER_THREAD_PER_ITER; // Recalculated op count
+        const double ops_per_second = total_ops / (time_ms / 1000.0);
+        const int score = std::min(1000, static_cast<int>(1000 * ops_per_second / REF_COMPUTE_OPS));
+
+        hipFree(d_data);
+        return {"Computational", time_ms, ops_per_second, 0.0, score, score > 200, (ops_per_second / REF_COMPUTE_OPS) * 100.0};
+    }
+
+    // UPDATED with better op counting
+    BenchmarkResult initAtomicTest(int iterations) {
+        constexpr int OPS_PER_THREAD_PER_ITER = 20;
+        int num_counters = 4096;
+        int* d_counters; float* d_float_data; unsigned long long* d_ull_data;
+        hipMalloc(&d_counters, num_counters * sizeof(int));
+        hipMalloc(&d_float_data, num_counters * sizeof(float));
+        hipMalloc(&d_ull_data, num_counters * sizeof(unsigned long long));
+        hipMemset(d_counters, 0, num_counters * sizeof(int));
+        hipMemset(d_float_data, 0, num_counters * sizeof(float));
+        hipMemset(d_ull_data, 0, num_counters * sizeof(unsigned long long));
+
+        dim3 block(gpu_specs.max_threads_per_block);
+        dim3 grid(gpu_specs.max_blocks_per_grid);
+
+        const auto start = std::chrono::high_resolution_clock::now();
+        atomicTest<<<grid, block>>>(d_counters, d_float_data, d_ull_data, num_counters, iterations);
+        hipDeviceSynchronize();
+        const auto end = std::chrono::high_resolution_clock::now();
+
+        const double time_ms = std::chrono::duration<double, std::milli>(end - start).count();
+        const double total_ops = static_cast<double>(grid.x) * block.x * iterations * OPS_PER_THREAD_PER_ITER; // Recalculated op count
+        const double ops_per_second = total_ops / (time_ms / 1000.0);
+        const int score = std::min(1000, static_cast<int>(1000 * ops_per_second / REF_ATOMIC_OPS));
+
+        hipFree(d_counters); hipFree(d_float_data); hipFree(d_ull_data);
+        return {"Atomic", time_ms, ops_per_second, 0.0, score, score > 300, (ops_per_second / REF_ATOMIC_OPS) * 100.0};
+    }
+
+    // UPDATED to use the much heavier chaos test
+    void init(const int iterations) {
+        std::cout << "=== EXTREME GPU STRESS TEST v2.0 ===\n";
+        std::cout << "WARNING: This revised test is significantly more demanding.\n";
+        std::cout << "Monitor temperatures and system stability carefully.\n\n";
+
+        detect_gpu_specifications();
+
+        results.push_back(initMemoryTest(iterations));
+        results.push_back(initComputationalTest(iterations));
+        results.push_back(initAtomicTest(iterations));
+        printDetailedResults();
+        calculateScore();
+    }
+
+    void printDetailedResults() const {
+        std::cout << "\n=== TEST RESULTS ===\n";
+        std::cout << std::left << std::setw(20) << "Test category"
+                  << std::right << std::setw(12) << "Time (ms)"
+                  << std::setw(13) << "Ops/sec"
+                  << std::setw(10) << "BW/Deg(%)"
+                  << std::setw(8) << "Score"
+                  << std::setw(10) << "Reference %" << "\n";
+        std::cout << std::string(73, '=') << "\n";
+
+        for (const auto& r : results) {
+            std::cout << std::left << std::setw(20) << r.test_name
+                      << std::right << std::setw(12) << std::fixed << std::setprecision(1) << r.execution_time_ms
+                      << std::setw(13) << std::scientific << std::setprecision(2) << r.operations_per_second
+                      << std::setw(10) << std::fixed << std::setprecision(1) << r.bandwidth_gbps
+                      << std::setw(8) << r.score
+                      << std::setw(10) << std::setprecision(1) << r.reference
+                      << "\n";
         }
         std::cout << "\n";
     }
 
-    void calculate_overall_score() {
+    void calculateScore() const {
         if (results.empty()) return;
 
         double weighted_score = 0.0;
-        double total_weight = 0.0;
-        int passed_tests = 0;
+        const std::vector<double> weights = {0.33, 0.33, 0.34};
 
-        // Weights for different test categories
-        std::vector<double> weights = {0.3, 0.3, 0.2, 0.2}; // Memory, Compute, Atomic, Thermal
-
-        for (size_t i = 0; i < results.size() && i < weights.size(); i++) {
-            weighted_score += results[i].score * weights[i];
-            total_weight += weights[i];
-            if (results[i].passed) passed_tests++;
+        for (size_t i = 0; i < results.size(); i++) {
+            weighted_score += weights[i] * results[i].score;
         }
 
-        int overall_score = (int)(weighted_score / total_weight);
-
-        std::cout << "=== OVERALL RESULTS ===\n";
-        std::cout << "Overall Score: " << overall_score << "/1000\n";
-        std::cout << "Tests Passed: " << passed_tests << "/" << results.size() << "\n";
-        std::cout << "Grade: " << get_grade(overall_score) << "\n";
-
-        if (overall_score >= 950) {
-            std::cout << "Status: LEGENDARY - Flagship GPU performance\n";
-        } else if (overall_score >= 850) {
-            std::cout << "Status: EXCELLENT - High-end GPU\n";
-        } else if (overall_score >= 700) {
-            std::cout << "Status: VERY GOOD - Upper mid-range GPU\n";
-        } else if (overall_score >= 500) {
-            std::cout << "Status: GOOD - Mid-range GPU\n";
-        } else if (overall_score >= 300) {
-            std::cout << "Status: AVERAGE - Entry-level GPU\n";
-        } else if (overall_score >= 150) {
-            std::cout << "Status: POOR - Low-end GPU\n";
-        } else {
-            std::cout << "Status: CRITICAL - Severe performance issues\n";
-        }
-    }
-
-private:
-    std::string get_grade(int score) {
-        if (score >= 980) return "S+";  // Legendary tier
-        if (score >= 950) return "S";   // Flagship tier
-        if (score >= 900) return "A+";
-        if (score >= 850) return "A";
-        if (score >= 800) return "A-";
-        if (score >= 750) return "B+";
-        if (score >= 700) return "B";
-        if (score >= 650) return "B-";
-        if (score >= 600) return "C+";
-        if (score >= 550) return "C";
-        if (score >= 500) return "C-";
-        if (score >= 450) return "D+";
-        if (score >= 400) return "D";
-        if (score >= 350) return "D-";
-        return "F";
+        std::cout << "=== FINAL VERDICT ===\n";
+        std::cout << "Score: " << static_cast<int>(weighted_score) << "/1000\n";
     }
 };
-// Updated main function
-extern "C" void initGPU(const int iterations, const int kernelLoop) {
-    GPUStressTester tester;
-    tester.run_comprehensive_benchmark(iterations, 30); // 30 second thermal test
+
+// External entry point
+extern "C" void initGPU(const int iterations) {
+    GPUstress tester;
+    tester.init(iterations);
+    std::cout << "\n=== TEST COMPLETE ===\n";
 }

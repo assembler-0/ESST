@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-extern "C" void initGPU(int iterations, int duration);
+extern "C" void initGPU(const int iterations);
 class esst {
 public:
     void init() {
@@ -104,19 +104,14 @@ private:
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
-    void initGPUStress (std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> duration_o = std::nullopt){
+    void initGPUStress (std::optional<unsigned long> iterations_o = std::nullopt){
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
         }
-        if (!duration_o.has_value()) {
-            std::cout << "Thermal stress duration (s)?: ";
-            if (!(std::cin >> duration_o.emplace())) return;
-        }
         const unsigned long iterations = iterations_o.value();
-        const unsigned long duration = duration_o.value();
         if (iterations_o.value() = 0) return;
-        initGPU(iterations, duration);
+        initGPU(iterations);
 
     }
     void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
@@ -428,7 +423,6 @@ private:
         unsigned long nuke_iterations_disk = 20 * intensity;
         unsigned long nuke_iterations_mem = 20 * intensity;
         unsigned long nuke_iterations_gpu = 10000 * intensity;
-        unsigned long nuke_thermal_duration_gpu = 60 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
@@ -440,7 +434,7 @@ private:
         initAESENC(nuke_iterations_aes, block_size);
         initAESDEC(nuke_iterations_aes, block_size);
         initDiskWrite(nuke_iterations_disk);
-        initGPUStress(nuke_iterations_gpu, nuke_thermal_duration_gpu);
+        initGPUStress(nuke_iterations_gpu);
         const auto duration = std::chrono::high_resolution_clock::now() - start;
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
