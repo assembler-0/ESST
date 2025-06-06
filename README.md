@@ -28,6 +28,7 @@
 | **AVX/FMA Floating-Point** (`avx.asm`) | Meltdown | Vector Units |
 | **Disk I/O Stress** (`diskWrite.asm`) | SSD Killer | Storage Subsystem |
 | **Memory Flooding** (`flood.asm`) | Rowhammer | DRAM Integrity |
+| **GPU stressing with ROCm & HIP** (`core.hip.cpp`) | Compute | Raw computaion, Memory test, Atomic operations |
 
 ## 🚀 Versions
 
@@ -47,4 +48,5 @@
 > * Your RAM might develop PTSD
 > * Your cooling solution will cry
 > * Your sysadmin will hunt you down
+> * Your GPU might be cooked
 > * (My system works fine tho)
