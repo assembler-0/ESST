@@ -110,7 +110,7 @@ private:
             if (!(std::cin >> iterations_o.emplace())) return;
         }
         const int iterations = iterations_o.value();
-        if ((iterations_o.value() = 0)) return;
+        if (iterations_o.value() == 0) return;
         initGPU(iterations);
 
     }
