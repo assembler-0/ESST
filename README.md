@@ -1,13 +1,7 @@
-# 🔥 ESST (Extreme System Stability Stresser) 
-
-**Extreme System Stability Stresser (ESST)** is a brutally aggressive benchmark written in C++ and x86_64 Assembly designed to push server hardware to its absolute limit.
+# ESST (Extreme System Stability Stresser) 
 
 ![GitHub license](https://img.shields.io/badge/license-MIT-red)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20Only-red)
-![Danger Level](https://img.shields.io/badge/DANGER-Hardware%20Damage%20Risk-orange)
-![CPU Stress](https://img.shields.io/badge/CPU%20Stress-Maximum%20Thermals-red)
-![RAM Stress](https://img.shields.io/badge/RAM%20Stress-Rowhammer%20Enabled-critical)
-![GPU Stress](https://img.shields.io/badge/GPU%20Stress-ROCm%20HIP%20Intergration-critical)
 > ⚠️ **WARNING: POTENTIAL HARDWARE DAMAGE**  
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling, power.
