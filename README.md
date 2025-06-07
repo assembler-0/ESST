@@ -35,9 +35,7 @@
 
 ![GitHub license](https://img.shields.io/badge/license-MIT-green)
 
-## 🔧 Build Instructions
-
-### 📦 Prerequisites
+## 📦 Prerequisites
 
 Make sure you have the following installed:
 
