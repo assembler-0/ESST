@@ -50,12 +50,6 @@ Make sure you have the following installed:
 
 See [BUILD.md](./BUILD.md) for full build instructions.
 
-## ☠️ Disclaimer
+## Disclaimer
 
-> ⚠️ This software comes with absolutely no warranty. By running ESST, you accept that:
-> * Your CPU may become a paperweight
-> * Your RAM might develop PTSD
-> * Your cooling solution will cry
-> * Your sysadmin will hunt you down
-> * Your GPU might be cooked
-> * (My system works fine tho)
+> ⚠️ This software comes with absolutely no warranty.
