@@ -28,6 +28,7 @@
 |---------|-------------|
 | `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full-red) | Maximum system saturation |
 | `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy-orange) | Higher intensity, less efficient |
+| `esstLIB` ![Old Version](https://img.shields.io/badge/Version-Library-blue) | Static library for ESST (full) |
 
 ## 📜 License
 
