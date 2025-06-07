@@ -35,6 +35,10 @@
 
 ![GitHub license](https://img.shields.io/badge/license-MIT-green)
 
+## 🔧 Build Instructions
+
+See [BUILD.md](./BUILD.md) for full build instructions.
+
 ## ☠️ Disclaimer
 
 > ⚠️ This software comes with absolutely no warranty. By running ESST, you accept that:
