@@ -28,8 +28,8 @@
 
 | Version | Description |
 |---------|-------------|
-| `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full%20Destruction-red) | Maximum system saturation |
-| `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy%20Pain-orange) | Higher intensity, less efficient |
+| `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full-red) | Maximum system saturation |
+| `esstOld` ![Old Version](https://img.shields.io/badge/Version-Legacy-orange) | Higher intensity, less efficient |
 
 ## 📜 License
 
