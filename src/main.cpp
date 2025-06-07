@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-extern "C" void initGPU(int iterations);
+
 class esst {
 public:
     void init() {

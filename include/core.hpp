@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 extern "C" {
+    void initGPU(int iterations);
     void p3np1E(unsigned long a, unsigned long * steps);
     void primes(unsigned long a, unsigned long * steps);
     void avx(float * a, float * b, float * c);
