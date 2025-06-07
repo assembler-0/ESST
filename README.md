@@ -1,7 +1,5 @@
 # ESST (Extreme System Stability Tester) 
 
-![GitHub license](https://img.shields.io/badge/license-MIT-red)
-![Platform](https://img.shields.io/badge/Platform-Linux%20Only-red)
 > ⚠️ **WARNING: POTENTIAL HARDWARE DAMAGE**  
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling.
