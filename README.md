@@ -15,14 +15,14 @@
 
 ## 💥 Features
 
-| Module | Intensity | Target |
-|--------|-----------|--------|
-| **Integer Arithmetic** (`3np1.asm`/`primes.asm`) | Extreme | ALUs, Branch Prediction |
-| **AES Encryption/Decryption** (`aesENC.asm`/`aesDEC.asm`)|  Nuclear | Crypto Accelerators |
-| **AVX/FMA Floating-Point** (`avx.asm`) | Meltdown | Vector Units |
-| **Disk I/O Stress** (`diskWrite.asm`) | SSD Killer | Storage Subsystem |
-| **Memory Flooding** (`flood.asm`) | Rowhammer | DRAM Integrity |
-| **GPU stressing with ROCm & HIP** (`core.hip.cpp`) | Compute | Raw computaion, Memory test, Atomic operations |
+| Module | Target |
+|--------|--------|
+| **Integer Arithmetic** (`3np1.asm`/`primes.asm`) | ALUs, Branch Prediction |
+| **AES Encryption/Decryption** (`aesENC.asm`/`aesDEC.asm`)| Crypto Accelerators |
+| **AVX/FMA Floating-Point** (`avx.asm`) | Vector Units |
+| **Disk I/O Stress** (`diskWrite.asm`) | Storage Subsystem |
+| **Memory Flooding** (`flood.asm`) | DRAM & Cache Integrity |
+| **GPU stressing with ROCm & HIP** (`core.hip.cpp`) | Raw computaion, Memory test, Atomic operations |
 
 ## 🚀 Versions
 
