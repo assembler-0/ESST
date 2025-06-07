@@ -37,6 +37,20 @@
 
 ## 🔧 Build Instructions
 
+### 📦 Prerequisites
+
+Make sure you have the following installed:
+
+* **CMake** ≥ 4.0
+* **Clang++** ≥ v19 (or compatible modern compiler)
+* **C++20** standard support
+* **Standard libraries** (libc++, libstdc++, etc.)
+* **NASM** (latest version recommended)
+* **Make** (or Ninja or any other build system you prefer)
+* **ROCm** and **HIP** libraries and runtime (for AMD GPUs)
+
+## 🔧 Build Instructions
+
 See [BUILD.md](./BUILD.md) for full build instructions.
 
 ## ☠️ Disclaimer
