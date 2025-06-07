@@ -340,7 +340,7 @@ public:
             weighted_score += weights[i] * results[i].score;
         }
 
-        std::cout << "=== FINAL VERDICT ===\n";
+        std::cout << "=== FINAL SCORE ===\n";
         std::cout << "Score: " << static_cast<int>(weighted_score) << "/1000\n";
     }
 };
