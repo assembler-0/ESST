@@ -37,28 +37,28 @@ __global__ void memoryTest(float* __restrict__ data,
                            float* __restrict__ data3,
                            float* __restrict__ data4,
                            const int size, const int iterations) {
-    const int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     extern __shared__ float shared_data[];
-    const int local_id = threadIdx.x;
+    const unsigned int local_id = threadIdx.x;
 
     shared_data[local_id] = data[tid % size];
     __syncthreads();
 
     for (int i = 0; i < iterations; i++) {
         // More complex and unpredictable address patterns
-        int pattern1 = (tid * 31 + i * 17) % size;
-        int pattern2 = (tid * 41 + i * 23) % size;
-        int pattern3 = (tid * 53 + i * 29) % size;
-        int pattern4 = (tid * 61 + i * 37) % size;
+        const unsigned int pattern1 = (tid * 31 + i * 17) % size;
+        const unsigned int pattern2 = (tid * 41 + i * 23) % size;
+        const unsigned int pattern3 = (tid * 53 + i * 29) % size;
+        const unsigned int pattern4 = (tid * 61 + i * 37) % size;
 
-        float val1 = data[pattern1];
-        float val2 = data2[pattern2];
-        float val3 = data3[pattern3];
-        float val4 = data4[pattern4];
+        const float val1 = data[pattern1];
+        const float val2 = data2[pattern2];
+        const float val3 = data3[pattern3];
+        const float val4 = data4[pattern4];
 
         // Increased computational dependency and shared memory use
-        float shared_val = shared_data[(local_id + i) % blockDim.x];
+        const float shared_val = shared_data[(local_id + i) % blockDim.x];
         float result = fmaf(val1, val2, shared_val);
         result = fmaf(result, val3, val4);
 
@@ -73,7 +73,7 @@ __global__ void memoryTest(float* __restrict__ data,
 
         // More intense cache-trashing loop
         for (int j = 0; j < 12; j++) {
-            int chaos_idx = (tid + i * 13 + j * 19) % size;
+            const unsigned int chaos_idx = (tid + i * 13 + j * 19) % size;
             data[chaos_idx] = fmaf(data[chaos_idx], 1.000001f, 0.000001f);
         }
         __syncthreads();
@@ -82,7 +82,7 @@ __global__ void memoryTest(float* __restrict__ data,
 
 // Stresses ALUs with data-dependent branching and heavier, more complex math
 __global__ void computationalTest(float* __restrict__ data, int size, int iterations) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     float r[32]; // Maximize register usage
     for (int i = 0; i < 32; i++) {
@@ -108,7 +108,7 @@ __global__ void computationalTest(float* __restrict__ data, int size, int iterat
     }
 
     float final_result = 0.0f;
-    for (int i = 0; i < 32; i++) final_result += r[i];
+    for (const float i : r) final_result += i;
     data[tid % size] = final_result;
 }
 
@@ -116,15 +116,15 @@ __global__ void computationalTest(float* __restrict__ data, int size, int iterat
 __global__ void atomicTest(int* __restrict__ counters,
                                float* __restrict__ float_data,
                                unsigned long long* __restrict__ ull_data,
-                               int iterations) {
-    int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    int warp_id = tid / 32;
+                               const int iterations) {
+    const unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int warp_id = tid / 32;
 
     for (int i = 0; i < iterations; i++) {
         // High contention - many threads target same locations
-        int contested_int = (warp_id + i) % 64;          // Only 64 locations for int atomics
-        int contested_float = (tid + i) % 128;           // 128 locations for float atomics
-        int contested_ull = (tid * 2 + i) % 256;         // 256 locations for ull atomics
+        const unsigned int contested_int = (warp_id + i) % 64;          // Only 64 locations for int atomics
+        const unsigned int contested_float = (tid + i) % 128;           // 128 locations for float atomics
+        const unsigned int contested_ull = (tid * 2 + i) % 256;         // 256 locations for ull atomics
 
         // Pure atomic operations - exactly 15 per thread per iteration
         atomicAdd(&counters[contested_int], 1);                    // 1
@@ -137,11 +137,11 @@ __global__ void atomicTest(int* __restrict__ counters,
         atomicExch(&float_data[contested_float], 2.5f);            // 7
 
         atomicAdd(&ull_data[contested_ull], 1ULL);                 // 8
-        atomicMax(&ull_data[contested_ull], (unsigned long long)tid); // 9
-        atomicExch(&ull_data[contested_ull], (unsigned long long)(tid + i)); // 10
+        atomicMax(&ull_data[contested_ull], tid); // 9
+        atomicExch(&ull_data[contested_ull], tid + i); // 10
 
         // Ultra-high contention - all threads in warp hit same location
-        int ultra_contested = i % 8;
+        const int ultra_contested = i % 8;
         atomicAdd(&counters[ultra_contested], 1);                  // 11
         atomicAdd(&counters[ultra_contested], 1);                  // 12
         atomicAdd(&counters[ultra_contested], 1);                  // 13
@@ -156,7 +156,6 @@ private:
     std::vector<BenchmarkResult> results;
     GPUSpecs gpu_specs;
 
-    // UPPED a lot, Reference scores adjusted for high-end GPUs (e.g., RTX 4090 / RX 7900 XTX)
     const double REF_MEMORY_OPS = 2.3e11;
     const double REF_COMPUTE_OPS = 1.1e13;
     const double REF_ATOMIC_OPS = 3.4e10;
@@ -186,7 +185,7 @@ public:
     }
 
     // UPDATED with better op counting
-    BenchmarkResult initMemoryTest(const int iterations) const {
+    [[nodiscard]] BenchmarkResult initMemoryTest(const int iterations) const {
         constexpr int OPS_PER_THREAD_PER_ITER = 36;
         const size_t size = std::min(static_cast<size_t>(64 * 1024 * 1024), gpu_specs.global_mem_size / 16);
 
@@ -225,7 +224,7 @@ public:
     }
 
     // UPDATED with better op counting
-    BenchmarkResult initComputationalTest(const int iterations) const {
+    [[nodiscard]] BenchmarkResult initComputationalTest(const int iterations) const {
         constexpr int OPS_PER_THREAD_PER_ITER = 13332;
         const size_t size = 1024 * 1024;
         float* d_data;
@@ -252,7 +251,7 @@ public:
     }
 
     // UPDATED with better op counting
-    BenchmarkResult initAtomicTest(int iterations) {
+    [[nodiscard]] BenchmarkResult initAtomicTest(const int iterations) const {
         constexpr int ATOMIC_OPS_PER_THREAD_PER_ITER = 15; // Exactly 15 atomic ops
 
         // Smaller arrays since we're creating high contention
@@ -271,7 +270,7 @@ public:
         hipMemset(d_ull_data, 0, num_counters * sizeof(unsigned long long));
 
         // Reasonable grid size
-        int reasonable_blocks = std::min(gpu_specs.compute_units * 8, 1024);
+        const int reasonable_blocks = std::min(gpu_specs.compute_units * 8, 1024);
         dim3 block(gpu_specs.max_threads_per_block);
         dim3 grid(reasonable_blocks);
 

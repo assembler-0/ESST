@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-extern "C" void initGPU(const int iterations);
+extern "C" void initGPU(int iterations);
 class esst {
 public:
     void init() {
@@ -97,24 +97,24 @@ private:
                   << "3np1  - Collatz Conjecture bruteforce\n"
                   << "primes  - Prime bruteforce\n"
                   << "mem   - Extreme memory testing\n"
-                  << "aesenc   - Vetor AES Encrypt stressing\n"
-                  << "aesdec   - Vetor AES Decrypt stressing\n"
+                  << "aesenc   - Vector AES Encrypt stressing\n"
+                  << "aesdec   - Vector AES Decrypt stressing\n"
                   << "disk   - Disk stressing\n"
-                  << "gpu   - GPU stressingwith HIP\n"
+                  << "gpu   - GPU stressing with HIP\n"
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
-    void initGPUStress (std::optional<unsigned long> iterations_o = std::nullopt){
+    static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
         }
-        const unsigned long iterations = iterations_o.value();
-        if (iterations_o.value() = 0) return;
+        const int iterations = iterations_o.value();
+        if ((iterations_o.value() = 0)) return;
         initGPU(iterations);
 
     }
-    void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+    void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> lower_o = std::nullopt, std::optional<unsigned long> upper_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
@@ -136,7 +136,7 @@ private:
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
 
-        for (unsigned i = 0; i < num_threads; ++i) {
+        for (int i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = collatzWorker(iterations, lower, upper, i);
             });
@@ -145,7 +145,7 @@ private:
 
         const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
         const double avg   = total / scores.size();
-        std::sort(scores.begin(), scores.end());
+        std::ranges::sort(scores);
         const double median = scores[scores.size() / 2];
 
         std::cout << "\n====== 3n+1 STRESS SCORE ======\n";
@@ -161,7 +161,7 @@ private:
 
     }
 
-    void initPrimes(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+    void initPrimes(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
@@ -192,7 +192,7 @@ private:
 
         const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
         const double avg   = total / scores.size();
-        std::sort(scores.begin(), scores.end());
+        std::ranges::sort(scores);
         const double median = scores[scores.size() / 2];
 
         std::cout << "\n====== Primes STRESS SCORE ======\n";
