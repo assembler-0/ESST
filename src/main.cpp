@@ -103,7 +103,7 @@ private:
                   << "sha   - SHA_NI stressing\n"
                   << "disk   - Disk stressing\n"
                   << "gpu   - GPU stressing with HIP\n"
-                  << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
+                  << "full  - Combined Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
     static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
