@@ -46,9 +46,9 @@ private:
     bool has_avx = false, has_avx2 = false, has_fma = false;
     const unsigned int num_threads = std::thread::hardware_concurrency();
 
-    static constexpr auto APP_VERSION = "0.5";
+    static constexpr auto APP_VERSION = "0.6";
     static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
-    static constexpr int COLLATZ_BATCH_SIZE = 1000-00;
+    static constexpr int COLLATZ_BATCH_SIZE = 10000000;
 
     const std::unordered_map<std::string, std::function<void()>> command_map = {
         {"exit", [this]() { running = false; }},
