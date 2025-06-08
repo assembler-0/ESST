@@ -9,15 +9,6 @@ cmake ..
 make
 ```
 
-### 🔸 Old Version Build
-
-```bash
-mkdir buildOLD
-cd buildOLD
-cmake -DBUILD_OLD_VERSION=ON ..
-make
-```
-
 ### 🔸 Library Build
 
 ```bash
