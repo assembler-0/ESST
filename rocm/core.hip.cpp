@@ -201,6 +201,9 @@ __global__ void computationalTest(float* __restrict__ data, int size, int iterat
     data[tid % size] = final_result;
 }
 
+void atomicMax(float* address, float tid);
+void atomicMin(float* address, float tid);
+void atomicSub(unsigned long long* address, unsigned long long val);
 // MAXIMUM INTENSITY ATOMIC TEST - Maximum contention and operations
 __global__ void atomicTest(int* __restrict__ counters,
                           float* __restrict__ float_data,
@@ -228,14 +231,14 @@ __global__ void atomicTest(int* __restrict__ counters,
         atomicAnd(&counters[ultra_contested_int], ~tid);
         atomicXor(&counters[ultra_contested_int], tid);
         atomicCAS(&counters[ultra_contested_int], tid, tid + 1);
-        atomicInc((unsigned int*)&counters[ultra_contested_int], 1000000);
+        atomicInc(reinterpret_cast<unsigned int*>(&counters[ultra_contested_int]), 1000000);
 
         // ROUND 2: Float atomics (5 operations)
         atomicAdd(&float_data[ultra_contested_float], 1.0f);
         atomicAdd(&float_data[ultra_contested_float], -1.0f);
         atomicExch(&float_data[ultra_contested_float], (float)tid);
-        atomicMax(&float_data[ultra_contested_float], (float)tid);
-        atomicMin(&float_data[ultra_contested_float], (float)tid);
+        atomicMax(&float_data[ultra_contested_float], static_cast<float>(tid));
+        atomicMin(&float_data[ultra_contested_float], static_cast<float>(tid));
 
         // ROUND 3: ULL atomics (8 operations)
         atomicAdd(&ull_data[ultra_contested_ull], 1ULL);
@@ -244,7 +247,7 @@ __global__ void atomicTest(int* __restrict__ counters,
         atomicMin(&ull_data[ultra_contested_ull], (unsigned long long)tid);
         atomicExch(&ull_data[ultra_contested_ull], (unsigned long long)(tid + i));
         atomicOr(&ull_data[ultra_contested_ull], (unsigned long long)tid);
-        atomicAnd(&ull_data[ultra_contested_ull], ~(unsigned long long)tid);
+        atomicAnd(&ull_data[ultra_contested_ull], ~static_cast<unsigned long long>(tid));
         atomicXor(&ull_data[ultra_contested_ull], (unsigned long long)tid);
 
         // ROUND 4: Double atomics (2 operations)
@@ -252,7 +255,7 @@ __global__ void atomicTest(int* __restrict__ counters,
         atomicAdd(&double_data[ultra_contested_double], -1.0);
 
         // ROUND 5: INSANE contention - single location battles
-        const int insane_location = 0;
+        constexpr int insane_location = 0;
         atomicAdd(&counters[insane_location], 1);
         atomicAdd(&counters[insane_location], 1);
         atomicAdd(&counters[insane_location], 1);

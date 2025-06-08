@@ -46,7 +46,7 @@ private:
     bool has_avx = false, has_avx2 = false, has_fma = false;
     const unsigned int num_threads = std::thread::hardware_concurrency();
 
-    static constexpr auto APP_VERSION = "0.6";
+    static constexpr auto APP_VERSION = "0.7";
     static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
     static constexpr int COLLATZ_BATCH_SIZE = 10000000;
 
@@ -60,6 +60,7 @@ private:
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
         {"gpu", [this]() { initGPUStress(); }},
+        {"sha", [this]() { initSHA256(); }},
         {"aesenc", [this]() { initAESENC(); }},
         {"aesdec", [this]() { initAESDEC(); }}
     };
@@ -99,6 +100,7 @@ private:
                   << "mem   - Extreme memory testing\n"
                   << "aesenc   - Vector AES Encrypt stressing\n"
                   << "aesdec   - Vector AES Decrypt stressing\n"
+                  << "sha   - SHA_NI stressing\n"
                   << "disk   - Disk stressing\n"
                   << "gpu   - GPU stressing with HIP\n"
                   << "full  - Combined AVX+Collatz+Mem+Aes Full System Stress\n"
@@ -255,7 +257,7 @@ private:
     }
 
 
-    void initMem(std::optional<unsigned long> user_iterations = std::nullopt) {
+    void initMem(std::optional<unsigned long> user_iterations = std::nullopt) const {
         char status;
         std::cout << "ONE TIME WARNING, THIS TEST CONTAINS ROWHAMMER ATTACK, PROCEED? (yY/nN): ";
         std::cin >> status;
@@ -297,7 +299,7 @@ private:
         std::cout << "===============================\n";
     }
 
-    void initAESENC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) {
+    void initAESENC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
@@ -411,6 +413,40 @@ private:
         std::cout << "================================\n";
     }
 
+    void initSHA256(std::optional<unsigned long> iterations_o = std::nullopt){
+        if (!iterations_o.has_value()) {
+            std::cout << "Iterations?: ";
+            if (!(std::cin >> iterations_o.emplace())) return;
+        }
+        const unsigned long iterations = iterations_o.value();
+        std::vector<std::thread> threads;
+        threads.reserve(num_threads);
+        std::vector<double> scores(num_threads);
+
+        for (unsigned i = 0; i < num_threads; ++i) {
+            threads.emplace_back([=, &scores]() {
+                scores[i] = sha256Worker(iterations, i);
+            });
+        }
+        for (auto& t : threads) t.join();
+
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
+        std::ranges::sort(scores);
+        const double median = scores[scores.size() / 2];
+
+        std::cout << "\n====== SHA STRESS SCORE ======\n";
+        for (size_t i = 0; i < scores.size(); ++i) {
+            std::cout << "Thread " << i << ": "
+                      << std::fixed << std::setprecision(2)
+                      << scores[i] << " it/s\n";
+        }
+        std::cout << "-------------------------------\n";
+        std::cout << "Avg:    " << avg << " it/s\n";
+        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "================================\n";
+    }
+
     void nuclearOption() {
         unsigned long intensity = 0;
         std::cout << "Intensity (1 = default): ";
@@ -422,7 +458,8 @@ private:
         unsigned long nuke_iterations_aes = 20 * intensity;
         unsigned long nuke_iterations_disk = 20 * intensity;
         unsigned long nuke_iterations_mem = 20 * intensity;
-        unsigned long nuke_iterations_gpu = 50000 * intensity;
+        unsigned long nuke_iterations_gpu = 5000 * intensity;
+        unsigned long nuke_iterations_sha = 100000000 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
@@ -435,6 +472,7 @@ private:
         initAESDEC(nuke_iterations_aes, block_size);
         initDiskWrite(nuke_iterations_disk);
         initGPUStress(nuke_iterations_gpu);
+        initSHA256(nuke_iterations_sha);
         const auto duration = std::chrono::high_resolution_clock::now() - start;
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
@@ -464,7 +502,7 @@ private:
     #endif
     }
 
-    double memoryWorker(unsigned long iterations, const int thread_id) {
+    static double memoryWorker(unsigned long iterations, const int thread_id) {
         pinThread(thread_id);
         const auto start = std::chrono::high_resolution_clock::now();
         constexpr size_t size = 1 << 30; // 1GB
@@ -485,6 +523,16 @@ private:
             rowhammerAttack(buffer, &iterations, buffer_size);
         }
         free_buffer(buffer, size);
+        const auto end = std::chrono::high_resolution_clock::now();
+        const std::chrono::duration<double> elapsed = end - start;
+        return iterations / elapsed.count();
+
+    }
+
+    static double sha256Worker(unsigned long iterations, const int thread_id) {
+        pinThread(thread_id);
+        const auto start = std::chrono::high_resolution_clock::now();
+        sha256(iterations);
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
         return iterations / elapsed.count();
