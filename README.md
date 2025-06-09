@@ -20,6 +20,8 @@
 | **AVX/FMA Floating-Point** (`avx.asm`) | Vector Units |
 | **Disk I/O Stress** (`diskWrite.asm`) | Storage Subsystem |
 | **Memory Flooding** (`flood.asm`) | DRAM & Cache Integrity |
+| **LZMA compression & decompression** (`lzma.module.cpp`) | CPU compression/decompression |
+| **System monitor** (`systemManager.manage.cpp`) | CPU compression/decompression |
 | **GPU stressing with ROCm & HIP** (`core.hip.cpp`) | Raw computaion, Memory test, Atomic operations |
 
 ## 🚀 Versions
@@ -27,7 +29,9 @@
 | Version | Description |
 |---------|-------------|
 | `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full-red) | Maximum system saturation |
-| `esstLIB` ![Old Version](https://img.shields.io/badge/Version-Library-blue) | Static library for ESST (full) |
+| `esstCLI` ![Full Version](https://img.shields.io/badge/Version-CLI-red) | Maximum system saturation without system monitor |
+| `esstLIB` (Full) ![Old Version](https://img.shields.io/badge/Version-Library-blue) | Static library for ESST (Full) |
+| `esstLIB` (No GPU) ![Old Version](https://img.shields.io/badge/Version-Library%20No%20GPU-blue) | Static library for ESST (No GPU) |
 
 ## 📜 License
 
