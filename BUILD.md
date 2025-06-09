@@ -33,7 +33,7 @@ make
 ```bash
 mkdir buildLIB
 cd buildLIB
-cmake -DBUILD_LIBRARY=ONABLE_GPU=OFF  ..
+cmake -DBUILD_LIBRARY=ON -DENABLE_GPU=OFF  ..
 make
 ```
 
