@@ -1,9 +1,16 @@
 global avx
 section .text
 avx:
-        ; Save registers
+        ; Save registers (Windows x64 calling convention)
         push rbp
         mov rbp, rsp
+
+        ; Windows x64 calling convention: RCX, RDX, R8, R9 for first 4 args
+        ; Our args: RCX = float *a, RDX = float *b, R8 = float *c
+        ; Move to consistent registers for easier porting
+        mov rdi, rcx    ; a
+        mov rsi, rdx    ; b
+        mov rdx, r8     ; c
         
         ; Initialize all YMM registers with different patterns to prevent optimization
         vmovaps ymm0, [rdi]

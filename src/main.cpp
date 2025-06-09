@@ -1,5 +1,5 @@
-#include "core.hpp"
-#include "pcg_random.hpp"
+#include "../include/core.hpp"
+#include "../include/pcg_random.hpp"
 #include <iostream>
 #include <random>
 #include <string>
@@ -13,8 +13,6 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-#include <oneapi/tbb/detail/_task.h>
-
 #ifdef _WIN32
 #include <windows.h>
 #include <intrin.h>
@@ -118,6 +116,23 @@ private:
         __get_cpuid(7, &eax, &ebx, &ecx, &edx);
         has_avx2 = ebx & bit_AVX2;
 #endif
+    }
+
+    static void showMenu() {
+        std::cout << "\n========= ESST =========\n"
+                  << "Extreme System Stability Test\n"
+                  << "avx   - AVX/FMA Stress Test\n"
+                  << "3np1  - Collatz Conjecture bruteforce\n"
+                  << "primes  - Prime bruteforce\n"
+                  << "mem   - Extreme memory testing\n"
+                  << "aesenc   - Vector AES Encrypt stressing\n"
+                  << "aesdec   - Vector AES Decrypt stressing\n"
+                  << "sha   - SHA_NI stressing\n"
+                  << "disk   - Disk stressing\n"
+                  << "lzma   - CPU compression and decompression using LZMA\n"
+                  << "gpu   - GPU stressing with HIP\n"
+                  << "full  - Combined Full System Stress\n"
+                  << "exit  - Exit Program\n\n";
     }
 
     static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
