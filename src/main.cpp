@@ -46,7 +46,7 @@ private:
     bool has_avx = false, has_avx2 = false, has_fma = false;
     const unsigned int num_threads = std::thread::hardware_concurrency();
 
-    static constexpr auto APP_VERSION = "0.7";
+    static constexpr auto APP_VERSION = "0.8";
     static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
     static constexpr int COLLATZ_BATCH_SIZE = 10000000;
 
