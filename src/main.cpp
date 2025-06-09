@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <numeric>
 #include <optional>
-
+#include <oneapi/tbb/detail/_task.h>
 class esst {
 public:
     void init() {
@@ -115,6 +115,7 @@ private:
         }
         const int iterations = iterations_o.value();
         if (iterations_o.value() == 0) return;
+        spawn_system_monitor();
         initGPU(iterations);
 
     }
@@ -126,6 +127,7 @@ private:
         }
         const int duration = duration_o.value();
         if (duration_o.value() == 0) return;
+        spawn_system_monitor();
         startLZMA(duration);
 
     }
@@ -147,7 +149,7 @@ private:
         const unsigned long lower = lower_o.value();
         const unsigned long upper = upper_o.value();
         if (iterations_o.value() == 0) return;
-
+        spawn_system_monitor();
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
@@ -194,7 +196,7 @@ private:
         const unsigned long lower = lower_o.value();
         const unsigned long upper = upper_o.value();
         if (iterations_o.value() == 0) return;
-
+        spawn_system_monitor();
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
@@ -224,7 +226,7 @@ private:
 
     }
 
-    void initAvx(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) {
+    void initAvx(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
             if (!(std::cin >> iterations_o.emplace())) return;
@@ -244,7 +246,7 @@ private:
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = avxWorker(iterations, lower, upper, i);
@@ -288,7 +290,7 @@ private:
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = memoryWorker(iterations, i);
@@ -328,7 +330,7 @@ private:
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = aesENCWorker(iterations, i, block_size);
@@ -363,12 +365,13 @@ private:
             if (!(std::cin >> blksize_o.emplace())) return;
         }
         if (iterations_o.value() == 0) return;
+        spawn_system_monitor();
         unsigned long iterations = iterations_o.value();
         unsigned int block_size = blksize_o.value();
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = aesDECWorker(iterations, i, block_size);
@@ -402,7 +405,7 @@ private:
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = diskWriteWorker(iterations, i);
@@ -436,7 +439,7 @@ private:
         std::vector<std::thread> threads;
         threads.reserve(num_threads);
         std::vector<double> scores(num_threads);
-
+        spawn_system_monitor();
         for (unsigned i = 0; i < num_threads; ++i) {
             threads.emplace_back([=, &scores]() {
                 scores[i] = sha256Worker(iterations, i);
@@ -479,6 +482,7 @@ private:
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
         const auto start = std::chrono::high_resolution_clock::now();
+        spawn_system_monitor();
         initMem(nuke_iterations_mem);
         initAvx(nuke_iterations_avx, lower_avx, upper_avx);
         init3np1(nuke_iterations_3np1, lower, upper);

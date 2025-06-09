@@ -19,6 +19,7 @@ extern "C" {
     void aes128DecryptBlock(void * out, const void * in, const void * key);
     void aesXtsDecrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
     void startLZMA(int duration);
+    void spawn_system_monitor();
 
 #ifdef __cplusplus
 }
