@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <cstdint>
 extern "C" {
     void sha256(long iterations);
     void initGPU(int iterations);

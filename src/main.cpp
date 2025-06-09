@@ -9,14 +9,20 @@
 #include <chrono>
 #include <vector>
 #include <immintrin.h>
-#include <cpuid.h>
-#include <sched.h>
-#include <sys/mman.h>
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
 #include <optional>
 #include <oneapi/tbb/detail/_task.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <intrin.h>
+#else
+#include <cpuid.h>
+#include <sched.h>
+#include <sys/mman.h>
+#endif
 
 class esst {
 public:
@@ -69,6 +75,26 @@ private:
 
     void detect_cpu_features() {
         char brand[0x40] = {0};
+#ifdef _WIN32
+        int cpuInfo[4] = {-1};
+        __cpuid(cpuInfo, 0x80000000);
+        unsigned int nExIds = cpuInfo[0];
+
+        for (unsigned int i = 0x80000000; i <= nExIds; ++i) {
+            __cpuidex(cpuInfo, i, 0);
+            if (i == 0x80000002) memcpy(brand, cpuInfo, sizeof(cpuInfo));
+            else if (i == 0x80000003) memcpy(brand + 16, cpuInfo, sizeof(cpuInfo));
+            else if (i == 0x80000004) memcpy(brand + 32, cpuInfo, sizeof(cpuInfo));
+        }
+        cpu_brand = brand;
+
+        __cpuidex(cpuInfo, 1, 0);
+        has_avx = (cpuInfo[2] & (1 << 28)) != 0;
+        has_fma = (cpuInfo[2] & (1 << 12)) != 0;
+
+        __cpuidex(cpuInfo, 7, 0);
+        has_avx2 = (cpuInfo[1] & (1 << 5)) != 0;
+#else
         unsigned int eax, ebx, ecx, edx;
 
         __get_cpuid(0x80000002, &eax, &ebx, &ecx, &edx);
@@ -91,24 +117,9 @@ private:
 
         __get_cpuid(7, &eax, &ebx, &ecx, &edx);
         has_avx2 = ebx & bit_AVX2;
+#endif
     }
 
-    static void showMenu() {
-        std::cout << "\n========= ESST =========\n"
-                  << "Extreme System Stability Test\n"
-                  << "avx   - AVX/FMA Stress Test\n"
-                  << "3np1  - Collatz Conjecture bruteforce\n"
-                  << "primes  - Prime bruteforce\n"
-                  << "mem   - Extreme memory testing\n"
-                  << "aesenc   - Vector AES Encrypt stressing\n"
-                  << "aesdec   - Vector AES Decrypt stressing\n"
-                  << "sha   - SHA_NI stressing\n"
-                  << "disk   - Disk stressing\n"
-                  << "lzma   - CPU compression and decompression using LZMA\n"
-                  << "gpu   - GPU stressing with HIP\n"
-                  << "full  - Combined Full System Stress\n"
-                  << "exit  - Exit Program\n\n";
-    }
     static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
@@ -501,26 +512,44 @@ private:
     }
 
     static void pinThread(int core) {
+#ifdef _WIN32
+        DWORD_PTR mask = 1ULL << core;
+        SetThreadAffinityMask(GetCurrentThread(), mask);
+#else
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(core % std::thread::hardware_concurrency(), &cpuset);
         pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
     }
     static void* allocate_huge_buffer(size_t size) {
+#ifdef _WIN32
+        // To use MEM_LARGE_PAGES, the user must have the "Lock pages in memory" privilege.
+        // SeLockMemoryPrivilege must be enabled.
+        void* ptr = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE | MEM_LARGE_PAGES, PAGE_READWRITE);
+        if (ptr) return ptr;
+        // Fallback to regular allocation if large pages fail
+        return VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+#else
     #ifdef __linux__
         void* ptr = mmap(nullptr, size, PROT_READ|PROT_WRITE,
                         MAP_PRIVATE|MAP_ANONYMOUS|MAP_HUGETLB, -1, 0);
         if (ptr != MAP_FAILED) return ptr;
     #endif
         return aligned_alloc(1 << 21, size); // Fallback to 2MB aligned
+#endif
     }
 
     static void free_buffer(void* buf, size_t size) {
+#ifdef _WIN32
+        VirtualFree(buf, 0, MEM_RELEASE);
+#else
     #ifdef __linux__
         munmap(buf, size);
     #else
         free(buf);
     #endif
+#endif
     }
 
     static double memoryWorker(unsigned long iterations, const int thread_id) {
@@ -699,10 +728,17 @@ private:
         const std::chrono::duration<double> elapsed = end - start;
         return iterations / elapsed.count();  // it/s
     }
+
     static double diskWriteWorker(unsigned long iterations, int tid){
         pinThread(tid);
         const auto start = std::chrono::high_resolution_clock::now();
+#ifdef _WIN32
+        char tempPath[MAX_PATH];
+        GetTempPathA(MAX_PATH, tempPath);
+        std::string filename = std::string(tempPath) + "writeTestThread" + std::to_string(tid) + ".bin";
+#else
         std::string filename = "/tmp/writeTestThread" + std::to_string(tid) + ".bin";
+#endif
         for (int i = 0; i < iterations; ++i) {
             diskWrite(filename.c_str());
         }
