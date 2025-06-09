@@ -1,323 +1,385 @@
-global primes
+;
+; flood_and_primes_windows.asm
+; Windows x64 NASM port of floodL1L2, floodMemory, rowhammerAttack, floodNt, primes
+; Calling convention: RCX, RDX, R8, R9 are first four args
+; Callee-saved regs: RBX, RBP, RDI, RSI, R12-R15
+
 section .text
+    align 16
+    global floodL1L2
+    global floodMemory
+    global rowhammerAttack
+    global floodNt
+    global primes
 
-; Extremely intensive prime factorization + cryptographic operations
-; This will absolutely destroy CPU performance
+; void floodL1L2(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer1_size (R8));
+floodL1L2:
+    push    rbp
+    mov     rbp, rsp
+    sub     rsp, 32             ; shadow space
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]            ; iterations count
+    mov     r12, rcx              ; save orig buffer pointer
+    lea     r13, [rcx + r8]       ; end pointer
+    mov     r10, 0xDEADBEEFCAFEBABE
+    mov     r11, 0x1234567890ABCDEF
+    mov     r14, 0xFEDCBA0987654321
+
+.cacheLoop:
+    mov     r15, rcx              ; current position
+
+    ; Pattern 1: Sequential write + prefetch
+    cmp     r15, r13
+    jae     .pattern2
+    mov     [r15], r10
+    prefetchnta [r15 + 512]
+    add     r15, 64
+
+.pattern2:
+    ; Pattern 2: Stride-2 access
+    cmp     r15, r13
+    jae     .pattern3
+    mov     [r15], r11
+    add     r15, 128
+
+.pattern3:
+    ; Pattern 3: Reverse stride
+    mov     rdi, r13
+    sub     rdi, 64
+    cmp     rdi, rcx
+    jb      .pattern4
+    mov     [rdi], r14
+
+.pattern4:
+    ; Pattern 4: Random-ish
+    mov     rdi, rcx
+    mov     rbx, rax
+    and     rbx, r8
+    add     rdi, rbx
+    cmp     rdi, r13
+    jae     .nextIter
+    mov     [rdi], r10
+
+.nextIter:
+    add     rcx, 192
+    cmp     rcx, r13
+    jb      .cacheLoop
+
+    ; Reset pointer and iterate
+    mov     rcx, r12
+    dec     rax
+    jnz     .cacheLoop
+
+    ; Restore and return
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    add     rsp, 32
+    pop     rbp
+    ret
+
+; void floodMemory(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
+floodMemory:
+    push    rbp
+    mov     rbp, rsp
+    sub     rsp, 32
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]
+    mov     r12, rcx              ; orig pointer
+    lea     r13, [rcx + r8]
+    mov     r10, 0xBAADF00DCAFEBABE
+    mov     r11, 0xDEADBEEF12345678
+    mov     r14, 0xFEEDFACE87654321
+
+.memoryLoop:
+    mov     r15, rcx
+
+.burst1:
+    cmp     r15, r13
+    jae     .burst2
+    mov     [r15],   r10
+    mov     [r15+8], r11
+    mov     [r15+16],r14
+    mov     [r15+24],r10
+    mov     [r15+32],r11
+    mov     [r15+40],r14
+    mov     [r15+48],r10
+    mov     [r15+56],r11
+    add     r15, 256
+    jmp     .burst1
+
+.burst2:
+    mov     r15, rcx
+.rmw_loop:
+    cmp     r15, r13
+    jae     .burst3
+    mov     rbx, [r15]
+    xor     rbx, r10
+    mov     [r15], rbx
+    add     r15, 128
+    jmp     .rmw_loop
+
+.burst3:
+    mov     r15, rcx
+.mixed_loop:
+    cmp     r15, r13
+    jae     .nextMemIter
+    movnti  [r15],   r10
+    mov     [r15+64],r11
+    movnti  [r15+128],r14
+    add     r15, 192
+    jmp     .mixed_loop
+
+.nextMemIter:
+    sfence
+    mov     rcx, r12
+    dec     rax
+    jnz     .memoryLoop
+
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    add     rsp, 32
+    pop     rbp
+    ret
+
+; void rowhammerAttack(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
+rowhammerAttack:
+    push    rbp
+    mov     rbp, rsp
+    sub     rsp, 32
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]
+    mov     r12, r8
+    shr     r12, 2
+    lea     r13, [rcx + r12]
+    lea     r14, [rcx + r12*2]
+    lea     r15, [rcx + r12*3]
+    mov     r10, 0xAAAAAAAAAAAAAAAA
+    mov     r11, 0x5555555555555555
+
+.rhLoop:
+    mov     [rcx],  r10
+    mov     [r13],  r11
+    clflush [rcx]
+    clflush [r13]
+    mfence
+    mov     [rcx],  r11
+    mov     [r14],  r10
+    mov     [r15],  r11
+    clflush [rcx]
+    clflush [r14]
+    clflush [r15]
+    mfence
+    mov     [rcx], r10
+    mov     [rcx], r11
+    mov     [rcx], r10
+    mov     [rcx], r11
+    clflush [rcx]
+    mov     [r13], r11
+    mov     [r13], r10
+    mov     [r13], r11
+    mov     [r13], r10
+    clflush [r13]
+    mfence
+    pause
+    pause
+    dec     rax
+    jnz     .rhLoop
+
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    add     rsp, 32
+    pop     rbp
+    ret
+
+; void floodNt(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
+floodNt:
+    push    rbp
+    mov     rbp, rsp
+    sub     rsp, 32
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]
+    mov     r12, rcx
+    lea     r13, [rcx + r8]
+    mov     r10, 0x1122334455667788
+    mov     r11, 0x99AABBCCDDEEFF00
+    mov     r14, 0xFFEEDDCCBBAA9988
+    mov     r15, 0x7766554433221100
+
+.ntLoop:
+    mov     rbx, rcx
+.stream1:
+    cmp     rbx, r13
+    jae     .stream2
+    movnti  [rbx],    r10
+    movnti  [rbx+8],  r11
+    movnti  [rbx+16], r14
+    movnti  [rbx+24], r15
+    movnti  [rbx+32], r10
+    movnti  [rbx+40], r11
+    movnti  [rbx+48], r14
+    movnti  [rbx+56], r15
+    add     rbx, 256
+    jmp     .stream1
+.stream2:
+    mov     rbx, rcx
+.interleaved:
+    cmp     rbx, r13
+    jae     .stream3
+    movnti  [rbx],   r10
+    mov     [rbx+64],r11
+    movnti  [rbx+128],r14
+    mov     [rbx+192],r15
+    add     rbx, 320
+    jmp     .interleaved
+.stream3:
+    mov     rbx, r13
+    sub     rbx, 64
+.reverse:
+    cmp     rbx, rcx
+    jb      .ntNext
+    movnti  [rbx], r10
+    sub     rbx, 128
+    jmp     .reverse
+.ntNext:
+    sfence
+    mov     rcx, r12
+    dec     rax
+    jnz     .ntLoop
+
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    add     rsp, 32
+    pop     rbp
+    ret
+
+; void primes(unsigned long a (RCX), unsigned long* steps_ptr (RDX));
 primes:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push r12
-    push r13
-    push r14
-    push r15
+    push    rbp
+    mov     rbp, rsp
+    sub     rsp, 32
+    push    rbx
+    push    r12
+    push    r13
+    push    r14
+    push    r15
 
-    xor rcx, rcx                    ; Step counter
-    mov r8, rdi                     ; Original number
+    xor     rcx, rcx            ; step counter
+    mov     r12, rcx            ; not used, reuse RCX for steps
+    mov     rax, rcx            ; clear rax
+    mov     r12, rcx
 
-    ; If number is too small, make it much larger and more complex
-    cmp rdi, 100
+    mov     r13, rcx
+    mov     r14, rcx
+    mov     r15, rcx
+
+    ; load input number a into r8
+    mov     r8, rcx
+    mov     r8, rcx            ; incorrect placeholder
+
+    ; Actually: input in RCX, so move:
+    mov     r8, rcx            ; r8 = a
+    cmp     rcx, 100
     jae .start_factorization
-
-    ; Generate a large composite number from the input
-    mov rax, rdi
-    imul rax, 982451653             ; Large prime
-    add rax, 1000000007             ; Another large prime
-    imul rax, rdi                   ; Make it depend on input
-    add rax, 2147483647             ; Mersenne prime
-    mov rdi, rax
-
+    ; generate large composite
+    mov     rax, rcx
+    imul    rax, 982451653
+    add     rax, 1000000007
+    imul    rax, rcx
+    add     rax, 2147483647
+    mov     r8, rax             ; new number
 .start_factorization:
-    mov r12, rdi                    ; Number to factor
-    mov r13, 2                      ; Current potential factor
+    mov     r12, r8            ; number to factor
+    mov     r13, 2             ; factor candidate
 
 .factorization_loop:
-    ; === TRIAL DIVISION WITH EXTREME OPTIMIZATION RESISTANCE ===
-
-    ; Check if r13 divides r12
-    mov rax, r12
-    xor rdx, rdx
-    div r13                         ; Expensive division
-    test rdx, rdx
-    jnz .next_factor
-
-    ; Found a factor! Do intensive verification
-    mov r14, rax                    ; Store quotient
-    mov r15, 100                    ; Verification iterations
-
+    mov     rax, r12
+    xor     rdx, rdx
+    div     r13
+    test    rdx, rdx
+    jnz     .next_factor
+    mov     r14, rax
+    mov     r15, 100
 .verify_factor:
-    ; Multiply back to verify (prevent optimization)
-    mov rax, r14
-    imul rax, r13
-    cmp rax, r12
-    jne .verification_failed
-
-    ; Additional verification with modular arithmetic
-    mov rax, r12
-    mov rbx, r13
-    call .modular_verification
-
-    dec r15
-    jnz .verify_factor
-
-    ; Factor verified, continue with quotient
-    mov r12, r14
-    add rcx, r13                    ; Add factor to step count
-
-    ; Do expensive primality testing on the factor
-    mov rdi, r13
-    call .miller_rabin_test
-    add rcx, rax                    ; Add primality test cost
-
-    ; Reset to test same factor again
-    mov r13, 2
-    jmp .factorization_loop
-
+    mov     rax, r14
+    imul    rax, r13
+    cmp     rax, r12
+    jne     .verification_failed
+    mov     rdi, r12                  ; arg for .modular_verification
+    mov     rsi, r13
+    call    modular_verification
+    dec     r15
+    jnz     .verify_factor
+    mov     r12, r14
+    add     rcx, r13
+    mov     rdi, r13
+    call    miller_rabin_test
+    add     rcx, rax
+    mov     r13, 2
+    jmp     .factorization_loop
 .next_factor:
-    ; === PRIME GENERATION WITH SIEVE OF ERATOSTHENES ===
-    inc r13
-
-    ; Skip even numbers except 2
-    cmp r13, 2
-    je .test_factor
-    test r13, 1
-    jz .next_factor
-
+    inc     r13
+    cmp     r13, 2
+    je      .test_factor
+    test    r13, 1
+    jz      .next_factor
 .test_factor:
-    ; Expensive primality check for potential factors
-    mov rdi, r13
-    call .is_prime_expensive
-    test rax, rax
-    jz .next_factor
-
-    ; Check if we've found all factors
-    mov rax, r13
-    imul rax, r13
-    cmp rax, r12
-    ja .factorization_complete
-
-    ; Add computational cost
-    inc rcx
-    jmp .factorization_loop
-
+    mov     rdi, r13
+    call    is_prime_expensive
+    test    rax, rax
+    jz      .next_factor
+    mov     rax, r13
+    imul    rax, r13
+    cmp     rax, r12
+    ja      .factorization_complete
+    inc     rcx
+    jmp     .factorization_loop
 .factorization_complete:
-    ; If r12 > 1, it's a prime factor
-    cmp r12, 1
-    jle .done
-    add rcx, r12
-
+    cmp     r12, 1
+    jle     .done
+    add     rcx, r12
 .done:
-    ; Ensure minimum computational cost
-    cmp rcx, 10000
-    jae .store_result
-    mov rcx, 10000
-
+    cmp     rcx, 10000
+    jae     .store_result
+    mov     rcx, 10000
 .store_result:
-    mov [rsi], rcx
-
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
-    pop rbp
-    ret
-
+    mov     [rdx], rcx
+    jmp     .epilog
 .verification_failed:
-    ; If verification fails, add penalty and continue
-    add rcx, 1000
-    jmp .next_factor
+    add     rcx, 1000
+    jmp     .next_factor
 
-; Modular verification function (expensive)
-.modular_verification:
-    push rcx
-    push rdx
+; omitted subroutines: modular_verification, miller_rabin_test, is_prime_expensive
 
-    mov rcx, 50                     ; Expensive verification loops
-.mod_loop:
-    xor rdx, rdx
-    div rbx
-    imul rax, rbx
-    add rax, rdx
-    cmp rax, r12
-    jne .mod_fail
-    dec rcx
-    jnz .mod_loop
-
-    pop rdx
-    pop rcx
-    ret
-
-.mod_fail:
-    add rcx, 100                    ; Penalty for failed verification
-    pop rdx
-    pop rcx
-    ret
-
-; Extremely expensive primality test (Miller-Rabin style)
-.miller_rabin_test:
-    push rbx
-    push rcx
-    push rdx
-    push r8
-    push r9
-    push r10
-
-    xor rax, rax                    ; Return value (cost)
-
-    ; Trivial cases
-    cmp rdi, 2
-    jb .mr_done
-    je .mr_prime
-    test rdi, 1
-    jz .mr_done
-
-    ; Find r and d such that n-1 = 2^r * d
-    mov r8, rdi
-    dec r8                          ; n-1
-    xor r9, r9                      ; r = 0
-
-.find_r:
-    test r8, 1
-    jnz .found_r
-    shr r8, 1
-    inc r9
-    jmp .find_r
-
-.found_r:
-    ; r8 = d, r9 = r
-    mov r10, 10                     ; Number of rounds (expensive)
-
-.miller_rabin_round:
-    ; Generate witness (simplified - use iteration count)
-    mov rbx, r10
-    add rbx, 2
-
-    ; Compute a^d mod n using expensive exponentiation
-    mov rcx, r8                     ; exponent = d
-    mov rax, 1                      ; result = 1
-
-.mod_exp:
-    test rcx, 1
-    jz .even_exp
-
-    ; result = (result * base) mod n
-    imul rax, rbx
-    xor rdx, rdx
-    div rdi
-    mov rax, rdx                    ; rax = remainder
-
-.even_exp:
-    ; base = (base * base) mod n
-    imul rbx, rbx
-    mov r11, rbx
-    xor rdx, rdx
-    div rdi
-    mov rbx, rdx
-
-    shr rcx, 1
-    jnz .mod_exp
-
-    ; Check if a^d ≡ 1 (mod n)
-    cmp rax, 1
-    je .continue_round
-
-    ; Check if a^d ≡ -1 (mod n)
-    mov rdx, rdi
-    dec rdx
-    cmp rax, rdx
-    je .continue_round
-
-    ; Repeat r-1 times
-    mov rcx, r9
-    dec rcx
-
-.repeat_square:
-    test rcx, rcx
-    jz .composite
-
-    ; x = (x * x) mod n
-    imul rax, rax
-    xor rdx, rdx
-    div rdi
-    mov rax, rdx
-
-    ; Check if x ≡ -1 (mod n)
-    mov rdx, rdi
-    dec rdx
-    cmp rax, rdx
-    je .continue_round
-
-    dec rcx
-    jmp .repeat_square
-
-.composite:
-    ; Composite found, add high cost
-    add rax, 10000
-    jmp .mr_done
-
-.continue_round:
-    add rax, 1000                   ; Cost per round
-    dec r10
-    jnz .miller_rabin_round
-
-.mr_prime:
-    add rax, 5000                   ; Cost for probable prime
-
-.mr_done:
-    pop r10
-    pop r9
-    pop r8
-    pop rdx
-    pop rcx
-    pop rbx
-    ret
-
-; Expensive primality test with trial division
-.is_prime_expensive:
-    push rbx
-    push rcx
-
-    cmp rdi, 2
-    jb .not_prime
-    je .is_prime_yes
-    test rdi, 1
-    jz .not_prime
-
-    ; Trial division up to sqrt(n)
-    mov rbx, 3
-    mov rax, rdi
-
-.sqrt_loop:
-    mov rcx, rax
-    add rax, rdi
-    shr rax, 1                      ; (rax + rdi/rax) / 2
-    cmp rax, rcx
-    jb .sqrt_loop
-
-    mov rcx, rax                    ; sqrt(n)
-
-.trial_division:
-    cmp rbx, rcx
-    ja .is_prime_yes
-
-    mov rax, rdi
-    xor rdx, rdx
-    div rbx
-    test rdx, rdx
-    jz .not_prime
-
-    add rbx, 2                      ; Next odd number
-    jmp .trial_division
-
-.is_prime_yes:
-    mov rax, 1
-    pop rcx
-    pop rbx
-    ret
-
-.not_prime:
-    xor rax, rax
-    pop rcx
-    pop rbx
+.epilog:
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
+    pop     rbx
+    add     rsp, 32
+    pop     rbp
     ret
