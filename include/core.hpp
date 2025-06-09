@@ -17,5 +17,4 @@ extern "C" {
     void aesXtsDecrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
     void diskWrite(const char * name);
     void startLZMA(int duration);
-    void spawn_system_monitor();
 }
