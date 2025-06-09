@@ -7,6 +7,7 @@
 #include <functional>
 #include <thread>
 #include <chrono>
+#include <ranges>
 #include <vector>
 #include <immintrin.h>
 #include <iomanip>
@@ -64,7 +65,6 @@ private:
         {"disk", [this]() { initDiskWrite(); }},
         {"full", [this]() { nuclearOption(); }},
         {"mem", [this]() { initMem(); }},
-        {"gpu", [this]() { initGPUStress(); }},
         {"sha", [this]() { initSHA256(); }},
         {"lzma", [this]() { initLZMA(); }},
         {"aesenc", [this]() { initAESENC(); }},
@@ -130,23 +130,9 @@ private:
                   << "sha   - SHA_NI stressing\n"
                   << "disk   - Disk stressing\n"
                   << "lzma   - CPU compression and decompression using LZMA\n"
-                  << "gpu   - GPU stressing with HIP\n"
                   << "full  - Combined Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
-
-    static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
-        if (!iterations_o.has_value()) {
-            std::cout << "Iterations?: ";
-            if (!(std::cin >> iterations_o.emplace())) return;
-        }
-        const int iterations = iterations_o.value();
-        if (iterations_o.value() == 0) return;
-
-        initGPU(iterations);
-
-    }
-
     static void initLZMA (std::optional<int> duration_o = std::nullopt){
         if (!duration_o.has_value()) {
             std::cout << "Duration (s)?: ";
@@ -517,7 +503,6 @@ private:
         initAESENC(nuke_iterations_aes, block_size);
         initAESDEC(nuke_iterations_aes, block_size);
         initDiskWrite(nuke_iterations_disk);
-        initGPUStress(nuke_iterations_gpu);
         initSHA256(nuke_iterations_sha);
         initLZMA(nuke_duration_lzma);
         const auto duration = std::chrono::high_resolution_clock::now() - start;

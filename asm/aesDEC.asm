@@ -1,39 +1,46 @@
 section .text
-global aes128DecryptBlock, aes256DecryptBlock, aesXtsDecrypt
+global aes128DecryptBlock, aesXtsDecrypt
 
 aes128DecryptBlock:
-    vmovdqu xmm0, [rsi]             ; Load ciphertext
-    vpxor xmm0, xmm0, [rdx+160]     ; AddRoundKey (start with round 10 key)
+    vmovdqu xmm0, [rdx]             ; Load ciphertext (in = rdx)
+    vpxor   xmm0, xmm0, [r8+160]    ; AddRoundKey (start with round 10 key)
 
-    ; Rounds 9-1 with reverse key order
-    vaesdec xmm0, xmm0, [rdx+144]   ; Round 9
-    vaesdec xmm0, xmm0, [rdx+128]   ; Round 8
-    vaesdec xmm0, xmm0, [rdx+112]   ; Round 7
-    vaesdec xmm0, xmm0, [rdx+96]    ; Round 6
-    vaesdec xmm0, xmm0, [rdx+80]    ; Round 5
-    vaesdec xmm0, xmm0, [rdx+64]    ; Round 4
-    vaesdec xmm0, xmm0, [rdx+48]    ; Round 3
-    vaesdec xmm0, xmm0, [rdx+32]    ; Round 2
-    vaesdec xmm0, xmm0, [rdx+16]    ; Round 1
+    ; Rounds 9–1
+    vaesdec xmm0, xmm0, [r8+144]
+    vaesdec xmm0, xmm0, [r8+128]
+    vaesdec xmm0, xmm0, [r8+112]
+    vaesdec xmm0, xmm0, [r8+96]
+    vaesdec xmm0, xmm0, [r8+80]
+    vaesdec xmm0, xmm0, [r8+64]
+    vaesdec xmm0, xmm0, [r8+48]
+    vaesdec xmm0, xmm0, [r8+32]
+    vaesdec xmm0, xmm0, [r8+16]
 
-    vaesdeclast xmm0, xmm0, [rdx]   ; Final round (round 0 key)
-    vmovdqu [rdi], xmm0
+    vaesdeclast xmm0, xmm0, [r8]    ; Final round
+    vmovdqu [rcx], xmm0             ; Store output
     ret
 
-;; Ultra-intensive parallel AES decryption for maximum CPU stress
-;; rdi = output, rsi = input, rdx = round keys, r8 = block count
+; extern "C" void aesXtsDecrypt(void* out, const void* in, const void* key, const void* tweak, size_t blocks);
 aesXtsDecrypt:
-    test r8, r8
-    jz .done
+    ; rcx = out, rdx = in, r8 = key, r9 = tweak
+    ; stack arg [rsp+40] = blocks
 
-    vmovdqu xmm15, [rcx]            ; Load tweak (assuming rcx has tweak)
+    push    rbp
+    mov     rbp, rsp
+    and     rsp, -16                ; Align stack
 
-    mov r9, r8
-    shr r9, 2                       ; Process 4 blocks at a time
-    and r8, 3                       ; Remaining blocks
+    mov     rax, [rbp+40h]          ; Get 5th argument: blocks
+    test    rax, rax
+    jz      .done
+
+    vmovdqu xmm15, [r9]            ; Load tweak
+
+    mov     r10, rax
+    shr     r10, 2                 ; 4-block chunks
+    and     rax, 3                 ; Remaining
 
 .process4blocks:
-    test r9, r9
+    test r10, r10
     jz .processRemaining
 
     ; Load 4 ciphertext blocks
@@ -154,9 +161,9 @@ aesXtsDecrypt:
     vmovdqu [rdi+48], xmm14
 
     ; Update pointers for next 4 blocks
-    add rsi, 64
-    add rdi, 64
-    dec r9
+    add rdx, 64
+    add rcx, 64
+    dec r10
     jnz .process4blocks
 
 .processRemaining:
@@ -178,6 +185,8 @@ aesXtsDecrypt:
     vmovdqu xmm10, [rdx+64]  ; Round 4
 
 .remainingLoop:
+    test    rax, rax
+    jz      .done
     vmovdqu xmm11, [rsi]
     vpxor xmm11, xmm11, xmm15    ; Apply tweak
 
@@ -205,8 +214,11 @@ aesXtsDecrypt:
 
     add rsi, 16
     add rdi, 16
-    dec r8
+    dec rax
     jnz .remainingLoop
 
+
 .done:
+    mov     rsp, rbp
+    pop     rbp
     ret

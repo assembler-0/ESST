@@ -1,234 +1,266 @@
-section .text
-global floodL1L2, floodMemory, rowhammerAttack, floodNt
+;
+; flood_windows.asm
+; Windows x64 NASM port of floodL1L2, floodMemory, rowhammerAttack, floodNt
+; Calling convention: RCX, RDX, R8, R9 are first four args
+; Callee-saved regs: RBX, RBP, RDI, RSI, R12-R15
 
-; Intensive L1/L2 cache flooding with multiple access patterns
+section .text
+    align 16
+    global floodL1L2
+    global floodMemory
+    global rowhammerAttack
+    global floodNt
+
+; void floodL1L2(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer1_size (R8));
 floodL1L2:
-    mov rcx, [rsi]            ; iterations count (second argument)
-    mov r8, rdi             ; save original buffer pointer
-    lea r9, [rdi + rdx]     ; end pointer
-    mov rax, 0xdeadbeefcafebabe
-    mov r10, 0x1234567890abcdef
-    mov r11, 0xfedcba0987654321
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]            ; iterations count
+    mov     r12, rcx              ; save orig buffer pointer
+    lea     r13, [rcx + r8]       ; end pointer
+    mov     r10, 0xDEADBEEFCAFEBABE
+    mov     r11, 0x1234567890ABCDEF
+    mov     r14, 0xFEDCBA0987654321
 
 .cacheLoop:
-    ; Multi-pattern cache flooding for maximum pressure
-    mov r12, rdi            ; current position
+    mov     r15, rcx              ; current position
 
-    ; Pattern 1: Sequential write with prefetch
-    cmp r12, r9
-    jae .pattern2
-    mov [r12], rax
-    prefetchnta [r12 + 512]
-    add r12, 64
+    ; Pattern 1: Sequential write + prefetch
+    cmp     r15, r13
+    jae     .pattern2
+    mov     [r15], r10
+    prefetchnta [r15 + 512]
+    add     r15, 64
 
 .pattern2:
     ; Pattern 2: Stride-2 access
-    cmp r12, r9
-    jae .pattern3
-    mov [r12], r10
-    add r12, 128
+    cmp     r15, r13
+    jae     .pattern3
+    mov     [r15], r11
+    add     r15, 128
 
 .pattern3:
-    ; Pattern 3: Reverse stride access
-    mov r13, r9
-    sub r13, 64
-    cmp r13, rdi
-    jb .pattern4
-    mov [r13], r11
+    ; Pattern 3: Reverse stride
+    mov     rdi, r13
+    sub     rdi, 64
+    cmp     rdi, rcx
+    jb      .pattern4
+    mov     [rdi], r14
 
 .pattern4:
-    ; Pattern 4: Random-ish access pattern
-    mov r13, rdi
-    add r13, rcx
-    and r13, rdx
-    add r13, rdi
-    cmp r13, r9
-    jae .nextIter
-    mov [r13], rax
+    ; Pattern 4: Random-ish
+    mov     rdi, rcx
+    mov     rbx, rax
+    and     rbx, r8
+    add     rdi, rbx
+    cmp     rdi, r13
+    jae     .nextIter
+    mov     [rdi], r10
 
 .nextIter:
-    add rdi, 192            ; Large stride to thrash cache
-    cmp rdi, r9
-    jb .cacheLoop
+    add     rcx, 192
+    cmp     rcx, r13
+    jb      .cacheLoop
 
-    ; Reset pointer and continue
-    mov rdi, r8
-    dec rcx
-    jnz .cacheLoop
+    ; Reset pointer and iterate
+    mov     rcx, r12
+    dec     rax
+    jnz     .cacheLoop
 
+    ; Restore and return
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
     ret
 
-; Intensive memory flooding with multiple access patterns
+; void floodMemory(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
 floodMemory:
-    mov rcx, [rsi]            ; iterations count
-    mov r8, rdi             ; save original pointer
-    lea r9, [rdi + rdx]     ; end pointer
-    mov rax, 0xbaadf00dcafebabe
-    mov r10, 0xdeadbeef12345678
-    mov r11, 0xfeedface87654321
+    push    r12
+    push    r13
+    push    r14
+    push    r15
+
+    mov     rax, [rdx]
+    mov     r12, rcx              ; orig pointer
+    lea     r13, [rcx + r8]
+    mov     r10, 0xBAADF00DCAFEBABE
+    mov     r11, 0xDEADBEEF12345678
+    mov     r14, 0xFEEDFACE87654321
 
 .memoryLoop:
-    mov r12, rdi            ; current position
+    mov     r15, rcx
 
-    ; Burst write pattern 1
 .burst1:
-    cmp r12, r9
-    jae .burst2
-    mov [r12], rax
-    mov [r12 + 8], r10
-    mov [r12 + 16], r11
-    mov [r12 + 24], rax
-    mov [r12 + 32], r10
-    mov [r12 + 40], r11
-    mov [r12 + 48], rax
-    mov [r12 + 56], r10
-    add r12, 256
-    jmp .burst1
+    cmp     r15, r13
+    jae     .burst2
+    mov     [r15],   r10
+    mov     [r15+8], r11
+    mov     [r15+16],r14
+    mov     [r15+24],r10
+    mov     [r15+32],r11
+    mov     [r15+40],r14
+    mov     [r15+48],r10
+    mov     [r15+56],r11
+    add     r15, 256
+    jmp     .burst1
 
 .burst2:
-    ; Read-modify-write pattern
-    mov r12, rdi
+    mov     r15, rcx
 .rmw_loop:
-    cmp r12, r9
-    jae .burst3
-    mov r13, [r12]
-    xor r13, rax
-    mov [r12], r13
-    add r12, 128
-    jmp .rmw_loop
+    cmp     r15, r13
+    jae     .burst3
+    mov     rbx, [r15]
+    xor     rbx, r10
+    mov     [r15], rbx
+    add     r15, 128
+    jmp     .rmw_loop
 
 .burst3:
-    ; Non-temporal + regular stores mixed
-    mov r12, rdi
+    mov     r15, rcx
 .mixed_loop:
-    cmp r12, r9
-    jae .nextMemIter
-    movnti [r12], rax
-    mov [r12 + 64], r10
-    movnti [r12 + 128], r11
-    add r12, 192
-    jmp .mixed_loop
+    cmp     r15, r13
+    jae     .nextMemIter
+    movnti  [r15],   r10
+    mov     [r15+64],r11
+    movnti  [r15+128],r14
+    add     r15, 192
+    jmp     .mixed_loop
 
 .nextMemIter:
     sfence
-    mov rdi, r8             ; reset pointer
-    dec rcx
-    jnz .memoryLoop
+    mov     rcx, r12
+    dec     rax
+    jnz     .memoryLoop
 
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
     ret
 
-; Aggressive rowhammer with multiple targets and patterns
+; void rowhammerAttack(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
 rowhammerAttack:
-    mov rcx, [rsi]            ; iterations count
-    mov r8, rdx             ; buffer_size
-    shr r8, 2               ; Quarter buffer for multiple targets
+    push    r12
+    push    r13
+    push    r14
+    push    r15
 
-    lea r9, [rdi + r8]      ; Target 1
-    lea r10, [rdi + r8*2]   ; Target 2
-    lea r11, [rdi + r8*2]   ; Target 3
-
-    mov rax, 0xAAAAAAAAAAAAAAAA
-    mov r12, 0x5555555555555555
+    mov     rax, [rdx]
+    mov     r12, r8
+    shr     r12, 2
+    lea     r13, [rcx + r12]      ; target1
+    lea     r14, [rcx + r12*2]    ; target2
+    lea     r15, [rcx + r12*3]    ; target3
+    mov     r10, 0xAAAAAAAAAAAAAAAA
+    mov     r11, 0x5555555555555555
 
 .rhLoop:
-    ; Multi-target hammering with different patterns
-
-    ; Hammer sequence 1: Alternating pattern
-    mov [rdi], rax
-    mov [r9], r12
-    clflush [rdi]
-    clflush [r9]
+    ; Seq 1
+    mov     [rcx],  r10
+    mov     [r13],  r11
+    clflush [rcx]
+    clflush [r13]
     mfence
 
-    ; Hammer sequence 2: Triple target
-    mov [rdi], r12
-    mov [r10], rax
-    mov [r11], r12
-    clflush [rdi]
-    clflush [r10]
-    clflush [r11]
+    ; Seq 2
+    mov     [rcx],  r11
+    mov     [r14],  r10
+    mov     [r15],  r11
+    clflush [rcx]
+    clflush [r14]
+    clflush [r15]
     mfence
 
-    ; Hammer sequence 3: Rapid fire
-    mov [rdi], rax
-    mov [rdi], r12
-    mov [rdi], rax
-    mov [rdi], r12
-    clflush [rdi]
-
-    mov [r9], r12
-    mov [r9], rax
-    mov [r9], r12
-    mov [r9], rax
-    clflush [r9]
+    ; Seq 3
+    mov     [rcx], r10
+    mov     [rcx], r11
+    mov     [rcx], r10
+    mov     [rcx], r11
+    clflush [rcx]
+    mov     [r13], r11
+    mov     [r13], r10
+    mov     [r13], r11
+    mov     [r13], r10
+    clflush [r13]
     mfence
 
-    ; Brief pause to avoid overwhelming memory controller
     pause
     pause
+    dec     rax
+    jnz     .rhLoop
 
-    dec rcx
-    jnz .rhLoop
-
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
     ret
 
-; Intensive non-temporal flooding with streaming patterns
+; void floodNt(void* buffer (RCX), unsigned long* iterations_ptr (RDX), size_t buffer_size (R8));
 floodNt:
-    mov rcx, [rsi]            ; iterations count
-    mov r8, rdi             ; save original pointer
-    lea r9, [rdi + rdx]     ; end pointer
+    push    r12
+    push    r13
+    push    r14
+    push    r15
 
-    mov rax, 0x1122334455667788
-    mov r10, 0x99aabbccddeeff00
-    mov r11, 0xffeeddccbbaa9988
-    mov r12, 0x7766554433221100
+    mov     rax, [rdx]
+    mov     r12, rcx              ; orig ptr
+    lea     r13, [rcx + r8]
+    mov     r10, 0x1122334455667788
+    mov     r11, 0x99AABBCCDDEEFF00
+    mov     r14, 0xFFEEDDCCBBAA9988
+    mov     r15, 0x7766554433221100
 
 .ntLoop:
-    mov r13, rdi            ; current position
+    mov     rbx, rcx
 
-    ; Streaming pattern 1: Sequential burst
 .stream1:
-    cmp r13, r9
-    jae .stream2
-    movnti [r13], rax
-    movnti [r13 + 8], r10
-    movnti [r13 + 16], r11
-    movnti [r13 + 24], r12
-    movnti [r13 + 32], rax
-    movnti [r13 + 40], r10
-    movnti [r13 + 48], r11
-    movnti [r13 + 56], r12
-    add r13, 256
-    jmp .stream1
+    cmp     rbx, r13
+    jae     .stream2
+    movnti  [rbx],    r10
+    movnti  [rbx+8],  r11
+    movnti  [rbx+16], r14
+    movnti  [rbx+24], r15
+    movnti  [rbx+32], r10
+    movnti  [rbx+40], r11
+    movnti  [rbx+48], r14
+    movnti  [rbx+56], r15
+    add     rbx, 256
+    jmp     .stream1
 
 .stream2:
-    ; Streaming pattern 2: Interleaved with regular stores
-    mov r13, rdi
+    mov     rbx, rcx
 .interleaved:
-    cmp r13, r9
-    jae .stream3
-    movnti [r13], rax
-    mov [r13 + 64], r10     ; Regular store to create pressure
-    movnti [r13 + 128], r11
-    mov [r13 + 192], r12    ; Regular store
-    add r13, 320
-    jmp .interleaved
+    cmp     rbx, r13
+    jae     .stream3
+    movnti  [rbx],   r10
+    mov     [rbx+64],r11
+    movnti  [rbx+128],r14
+    mov     [rbx+192],r15
+    add     rbx, 320
+    jmp     .interleaved
 
 .stream3:
-    ; Streaming pattern 3: Reverse direction
-    mov r13, r9
-    sub r13, 64
+    mov     rbx, r13
+    sub     rbx, 64
 .reverse:
-    cmp r13, rdi
-    jb .ntNext
-    movnti [r13], rax
-    sub r13, 128
-    jmp .reverse
+    cmp     rbx, rcx
+    jb      .ntNext
+    movnti  [rbx], r10
+    sub     rbx, 128
+    jmp     .reverse
 
 .ntNext:
-    sfence                  ; Ensure all NT stores complete
-    mov rdi, r8             ; reset pointer
-    dec rcx
-    jnz .ntLoop
+    sfence
+    mov     rcx, r12
+    dec     rax
+    jnz     .ntLoop
 
+    pop     r15
+    pop     r14
+    pop     r13
+    pop     r12
     ret

@@ -1,7 +1,8 @@
-; SHA-256 CPU Stress Test - NASM Syntax (PIC Compliant)
-; Function: sha_stress(uint64_t iterations)
-; Argument: RDI = number of iterations to run
+; SHA-256 CPU Stress Test - NASM Syntax for Windows x64
+; Function: void sha256(long iterations)
+; Argument: RCX = number of iterations to run
 ; No return value - just pure CPU punishment
+
 section .data
     align 64
 stress_data:
@@ -44,23 +45,25 @@ section .text
     global check_sha_support
 
 sha256:
-    ; Save registers
+    ; Save registers (Windows x64 calling convention requires saving these)
     push rbp
     mov rbp, rsp
     push rbx
+    push rdi
+    push rsi
     push r12
     push r13
     push r14
     push r15
-    sub rsp, 128
+    sub rsp, 32         ; Allocate shadow space (32 bytes) + align stack
 
     ; Check iterations - if 0, default to 1 million
-    test rdi, rdi
+    test rcx, rcx
     jnz .start_stress
-    mov rdi, 1000000
+    mov rcx, 1000000
 
 .start_stress:
-    mov r15, rdi        ; r15 = iteration counter
+    mov r15, rcx        ; r15 = iteration counter (RCX is first param in Windows)
 
     ; Load constants using RIP-relative addressing
     movdqa xmm14, [rel bswap_shuf]  ; Byte swap mask
@@ -168,11 +171,13 @@ sha256:
     jnz .mega_loop
 
     ; Epilogue
-    add rsp, 128
+    add rsp, 32         ; Remove shadow space
     pop r15
     pop r14
     pop r13
     pop r12
+    pop rsi
+    pop rdi
     pop rbx
     pop rbp
     ret
@@ -183,6 +188,10 @@ check_sha_support:
     push rbx
     push rcx
     push rdx
+    push rsi
+    push rdi
+    push rbp
+    sub rsp, 32         ; Shadow space
 
     ; Check for CPUID level 7 support
     mov eax, 0
@@ -207,6 +216,10 @@ check_sha_support:
     mov rax, 1
 
 .done:
+    add rsp, 32         ; Remove shadow space
+    pop rbp
+    pop rdi
+    pop rsi
     pop rdx
     pop rcx
     pop rbx

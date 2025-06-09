@@ -1,104 +1,118 @@
-section .data
-    align 4096
-    ; Use multiple buffers with different patterns to stress cache
-    buffer1 times 65536 db 0xAA
-    buffer2 times 65536 db 0x55
-    buffer3 times 65536 db 0xFF
-    buffer4 times 65536 db 0x00
+extern CreateFileA
+extern WriteFile
+extern CloseHandle
+extern DeleteFileA
+extern ExitProcess
+
+section .data align=4096
+buffer1 times 65536 db 0xAA
+buffer2 times 65536 db 0x55
+buffer3 times 65536 db 0xFF
+buffer4 times 65536 db 0x00
 
 section .text
-    global diskWrite
+global diskWrite
 
 diskWrite:
-    push rbp
+    push rbx
+    push rsi
+    push rdi
     push r12
     push r13
     push r14
     push r15
-    push rbx
-    mov rbp, rsp
 
-    mov r15, rdi                ; Save filename
-
-    ; Create and write to file multiple times with different patterns
-    mov rbx, 8                  ; Number of write cycles (8 * 2GB = 16GB total I/O)
+    mov r15, rcx        ; const char* name
+    mov rbx, 8          ; 8 write cycles
 
 .cycle_loop:
-    ; sys_open - create new file each cycle for more I/O stress
-    mov rax, 2
-    mov rdi, r15
-    mov rsi, 0x241              ; O_WRONLY | O_CREAT | O_TRUNC
-    mov rdx, 0644o
-    syscall
+    ; HANDLE CreateFileA(LPCSTR lpFileName, ...);
+    mov rcx, r15                    ; lpFileName
+    mov rdx, 0x40000000             ; GENERIC_WRITE
+    mov r8, 0                       ; no sharing
+    mov r9, 0                       ; no security
+    sub rsp, 32                    ; shadow space
+    mov qword [rsp+0], 2           ; CREATE_ALWAYS
+    mov qword [rsp+8], 0           ; FILE_ATTRIBUTE_NORMAL
+    mov qword [rsp+16], 0          ; hTemplateFile
 
-    cmp rax, 0
-    jl .next_cycle
-    mov r12, rax                ; Save fd
+    call CreateFileA
+    add rsp, 32
 
-    ; Write 2GB with alternating buffer patterns
-    mov r13, 8192               ; 8192 * 4 buffers * 64KB = 2GB per cycle
+    cmp rax, -1
+    je .next_cycle
+
+    mov r12, rax                   ; store HANDLE
+    mov r13, 8192                  ; 2GB worth of writes
 
 .write_loop:
-    ; Write buffer1 (0xAA pattern)
-    mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel buffer1]
-    mov rdx, 65536
-    syscall
-    cmp rax, 65536
-    jne .close_file
+    ; Macro-like pattern for all four buffers:
+    ; BOOL WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, ...)
 
-    ; Write buffer2 (0x55 pattern)
-    mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel buffer2]
-    mov rdx, 65536
-    syscall
-    cmp rax, 65536
-    jne .close_file
+    mov rcx, r12
+    lea rdx, [rel buffer1]
+    mov r8d, 65536
+    sub rsp, 32
+    mov qword [rsp+0], rsp         ; lpNumberOfBytesWritten
+    mov qword [rsp+8], 0           ; lpOverlapped
 
-    ; Write buffer3 (0xFF pattern)
-    mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel buffer3]
-    mov rdx, 65536
-    syscall
-    cmp rax, 65536
-    jne .close_file
+    call WriteFile
+    add rsp, 32
 
-    ; Write buffer4 (0x00 pattern)
-    mov rax, 1
-    mov rdi, r12
-    lea rsi, [rel buffer4]
-    mov rdx, 65536
-    syscall
-    cmp rax, 65536
-    jne .close_file
+    mov rcx, r12
+    lea rdx, [rel buffer2]
+    mov r8d, 65536
+    sub rsp, 32
+    mov qword [rsp+0], rsp         ; lpNumberOfBytesWritten
+    mov qword [rsp+8], 0           ; lpOverlapped
+
+    call WriteFile
+    add rsp, 32
+
+    mov rcx, r12
+    lea rdx, [rel buffer3]
+    mov r8d, 65536
+    sub rsp, 32
+    mov qword [rsp+0], rsp         ; lpNumberOfBytesWritten
+    mov qword [rsp+8], 0           ; lpOverlapped
+
+    call WriteFile
+    add rsp, 32
+
+    mov rcx, r12
+    lea rdx, [rel buffer4]
+    mov r8d, 65536
+    sub rsp, 32
+    mov qword [rsp+0], rsp         ; lpNumberOfBytesWritten
+    mov qword [rsp+8], 0           ; lpOverlapped
+
+    call WriteFile
+    add rsp, 32
+
+    ; Repeat with buffer2, buffer3, buffer4...
+    ; You can macro-ize this or unroll
 
     dec r13
     jnz .write_loop
 
-.close_file:
-    ; Close file
-    mov rax, 3
-    mov rdi, r12
-    syscall
+    ; Close handle
+    mov rcx, r12
+    call CloseHandle
 
-    ; Immediately delete file to keep disk usage low
-    mov rax, 87                 ; sys_unlink
-    mov rdi, r15
-    syscall
+    ; Delete the file
+    mov rcx, r15
+    call DeleteFileA
 
 .next_cycle:
     dec rbx
     jnz .cycle_loop
 
-    ; Final cleanup
-    mov rsp, rbp
-    pop rbx
+    ; Cleanup
     pop r15
     pop r14
     pop r13
     pop r12
-    pop rbp
+    pop rdi
+    pop rsi
+    pop rbx
     ret
