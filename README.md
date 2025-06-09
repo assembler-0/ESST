@@ -20,7 +20,7 @@
 | **AVX/FMA Floating-Point** (`avx.asm`) | Vector Units |
 | **Disk I/O Stress** (`diskWrite.asm`) | Storage Subsystem |
 | **Memory Flooding** (`flood.asm`) | DRAM & Cache Integrity |
-| **LZMA compression & decompression** (`lzma.module.cpp`) | CPU compression/decompression |
+| **LZMA compression & decompression** (`lzma.module.cpp`) | Monitor CPU usage and temps |
 | **System monitor** (`systemManager.manage.cpp`) | CPU compression/decompression |
 | **GPU stressing with ROCm & HIP** (`core.hip.cpp`) | Raw computaion, Memory test, Atomic operations |
 
