@@ -16,4 +16,5 @@ extern "C" {
     void aes128DecryptBlock(void * out, const void * in, const void * key);
     void aesXtsDecrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
     void diskWrite(const char * name);
+    void startLZMA(int duration);
 }

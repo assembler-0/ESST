@@ -61,6 +61,7 @@ private:
         {"mem", [this]() { initMem(); }},
         {"gpu", [this]() { initGPUStress(); }},
         {"sha", [this]() { initSHA256(); }},
+        {"lzma", [this]() { initLZMA(); }},
         {"aesenc", [this]() { initAESENC(); }},
         {"aesdec", [this]() { initAESDEC(); }}
     };
@@ -102,6 +103,7 @@ private:
                   << "aesdec   - Vector AES Decrypt stressing\n"
                   << "sha   - SHA_NI stressing\n"
                   << "disk   - Disk stressing\n"
+                  << "lzma   - CPU compression and decompression using LZMA\n"
                   << "gpu   - GPU stressing with HIP\n"
                   << "full  - Combined Full System Stress\n"
                   << "exit  - Exit Program\n\n";
@@ -116,6 +118,18 @@ private:
         initGPU(iterations);
 
     }
+
+    static void initLZMA (std::optional<int> duration_o = std::nullopt){
+        if (!duration_o.has_value()) {
+            std::cout << "Duration (s)?: ";
+            if (!(std::cin >> duration_o.emplace())) return;
+        }
+        const int duration = duration_o.value();
+        if (duration_o.value() == 0) return;
+        startLZMA(duration);
+
+    }
+
     void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> lower_o = std::nullopt, std::optional<unsigned long> upper_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
@@ -460,6 +474,7 @@ private:
         unsigned long nuke_iterations_mem = 20 * intensity;
         unsigned long nuke_iterations_gpu = 5000 * intensity;
         unsigned long nuke_iterations_sha = 100000000 * intensity;
+        unsigned long nuke_duration_lzma = 60 * intensity;
         constexpr unsigned long lower_avx = 0.0001, upper_avx = 1000000000000000;
         constexpr unsigned long lower = 1, upper = 1000000000000000;
         constexpr int block_size = 24;
@@ -473,6 +488,7 @@ private:
         initDiskWrite(nuke_iterations_disk);
         initGPUStress(nuke_iterations_gpu);
         initSHA256(nuke_iterations_sha);
+        initLZMA(nuke_duration_lzma);
         const auto duration = std::chrono::high_resolution_clock::now() - start;
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
