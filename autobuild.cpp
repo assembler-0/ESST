@@ -37,7 +37,7 @@ int main() {
     for (const auto& entry : fs::directory_iterator("src")) {
         if (entry.path().extension() == ".cpp" || entry.path().extension() == ".module.cpp") {
             std::string cpp_file = entry.path().string();
-            std::string obj_file = "obj/" + entry.path().stem().string() + ".o";
+            std::string obj_file = "obj/" + entry.path().stem().string() + ".obj";
 
             std::string command = "x86_64-w64-mingw32-g++ " + compile_flags + " -c " + cpp_file + " -o " + obj_file;
             std::cout << "Running: " << command << "\n";

@@ -154,7 +154,7 @@ rowhammerAttack:
     shr     r12, 2
     lea     r13, [rcx + r12]      ; target1
     lea     r14, [rcx + r12*2]    ; target2
-    lea     r15, [rcx + r12*3]    ; target3
+    lea     r15, [rcx + r12*2]    ; target3
     mov     r10, 0xAAAAAAAAAAAAAAAA
     mov     r11, 0x5555555555555555
 

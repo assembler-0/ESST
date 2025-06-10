@@ -168,7 +168,7 @@ rowhammerAttack:
     shr     r12, 2
     lea     r13, [rcx + r12]
     lea     r14, [rcx + r12*2]
-    lea     r15, [rcx + r12*3]
+    lea     r15, [rcx + r12*2]
     mov     r10, 0xAAAAAAAAAAAAAAAA
     mov     r11, 0x5555555555555555
 
@@ -330,13 +330,11 @@ primes:
     jne     .verification_failed
     mov     rdi, r12                  ; arg for .modular_verification
     mov     rsi, r13
-    call    modular_verification
     dec     r15
     jnz     .verify_factor
     mov     r12, r14
     add     rcx, r13
     mov     rdi, r13
-    call    miller_rabin_test
     add     rcx, rax
     mov     r13, 2
     jmp     .factorization_loop
@@ -348,7 +346,6 @@ primes:
     jz      .next_factor
 .test_factor:
     mov     rdi, r13
-    call    is_prime_expensive
     test    rax, rax
     jz      .next_factor
     mov     rax, r13
