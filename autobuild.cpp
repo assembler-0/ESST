@@ -7,65 +7,59 @@
 namespace fs = std::filesystem;
 
 int main() {
-    system("mkdir obj");
-    std::vector<std::string> obj_files;
-    std::string compile_flags = "-O3 -march=native -mtune=native -Wall -Wextra -pthread -std=c++20";
-    std::string output_exe = "esst.exe";
+    std::string os;
+    std::cout << "Enter host OS (linux/windows): ";
+    std::cin >> os;
 
-    // Step 1: Compile all ASM files with NASM
-    std::cout << "Compiling ASM files...\n";
-    for (const auto& entry : fs::directory_iterator("asm")) {
-        if (entry.path().extension() == ".asm") {
-            std::string asm_file = entry.path().string();
-            std::string obj_file = "obj/" + entry.path().stem().string() + ".o";
+    // Select compiler based on OS
+    std::string compiler = (os == "linux") ? "x86_64-w64-mingw32-g++" : "g++";
+    std::string asm_format = (os == "linux") ? "elf64" : "win64";
 
-            std::string command = "nasm -f win64 " + asm_file + " -o " + obj_file;
-            std::cout << "Running: " << command << "\n";
+    // Create obj directory
+    if (!fs::exists("obj")) {
+        fs::create_directory("obj");
+        std::cout << "Created obj/ directory\n";
+    }
 
-            int result = system(command.c_str());
-            if (result != 0) {
-                std::cerr << "Error compiling " << asm_file << "\n";
-                return 1;
-            }
-
-            obj_files.push_back(obj_file);
+    // Clean old object files
+    for (const auto& file : fs::directory_iterator("obj")) {
+        if (file.path().extension() == ".o" || file.path().extension() == ".obj") {
+            fs::remove(file);
         }
     }
 
-    // Step 2: Compile all CPP files
-    std::cout << "\nCompiling CPP files...\n";
-    for (const auto& entry : fs::directory_iterator("src")) {
-        if (entry.path().extension() == ".cpp" || entry.path().extension() == ".module.cpp") {
-            std::string cpp_file = entry.path().string();
-            std::string obj_file = "obj/" + entry.path().stem().string() + ".obj";
+    std::vector<std::string> objects;
 
-            std::string command = "x86_64-w64-mingw32-g++ " + compile_flags + " -c " + cpp_file + " -o " + obj_file;
-            std::cout << "Running: " << command << "\n";
+    // Assemble all .asm files
+    for (const auto& file : fs::directory_iterator("asm")) {
+        if (file.path().extension() == ".asm") {
+            std::string obj_name = "obj/" + file.path().stem().string() + ".o";
+            std::string cmd = "nasm -f " + asm_format + " " + file.path().string() + " -o " + obj_name;
 
-            int result = system(command.c_str());
-            if (result != 0) {
-                std::cerr << "Error compiling " << cpp_file << "\n";
+            std::cout << "Assembling: " << file.path().filename().string() << "\n";
+            if (std::system(cmd.c_str()) != 0) {
+                std::cerr << "Assembly failed for " << file.path().string() << "\n";
                 return 1;
             }
-
-            obj_files.push_back(obj_file);
+            objects.push_back(obj_name);
         }
     }
 
-    // Step 3: Link everything
-    std::cout << "\nLinking executable...\n";
-    std::string link_command = "x86_64-w64-mingw32-g++ -static -o " + output_exe;
-    for (const auto& obj : obj_files) {
-        link_command += " " + obj;
+    // Build object list string
+    std::string obj_list;
+    for (const auto& obj : objects) {
+        obj_list += obj + " ";
     }
 
-    std::cout << "Running: " << link_command << "\n";
-    int result = system(link_command.c_str());
-    if (result != 0) {
-        std::cerr << "Error linking executable\n";
+    // Compile final executable
+    std::string compile_cmd = compiler + " -O3 -std=c++20 -static src/main.cpp " + obj_list + "-o esst.exe";
+    std::cout << "Compiling final executable...\n";
+
+    if (std::system(compile_cmd.c_str()) != 0) {
+        std::cerr << "Compilation failed!\n";
         return 1;
     }
 
-    std::cout << "\nBuild successful! Output: " << output_exe << "\n";
+    std::cout << "Build complete! Output: esst.exe\n";
     return 0;
 }

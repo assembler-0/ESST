@@ -1,6 +1,5 @@
 #pragma once
 #include <cstddef>
-#include <cstdint>
 extern "C" {
     void sha256(long iterations);
     void p3np1E(unsigned long a, unsigned long * steps);
@@ -16,5 +15,4 @@ extern "C" {
     void aes128DecryptBlock(void * out, const void * in, const void * key);
     void aesXtsDecrypt(void * out, const void * in, const void* key, const void * tweak, size_t blocks);
     void diskWrite(const char * name);
-    void startLZMA(int duration);
 }
