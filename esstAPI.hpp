@@ -1,5 +1,5 @@
 #pragma once
-
+using namespace std;
 #ifdef __cplusplus
 extern "C" {
 #endif
