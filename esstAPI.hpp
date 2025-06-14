@@ -1,5 +1,6 @@
 #pragma once
-
+#include <cstdint>
+using namespace std;
 #ifdef __cplusplus
 extern "C" {
 #endif
