@@ -8,8 +8,9 @@
 
 ![Version](https://img.shields.io/badge/Current%20Version-v0.8-blue)
 
-## 🐧 Linux Only
-![Linux](https://img.shields.io/badge/Compatibility-Linux%20Only-important)
+## 🐧 Compatibility
+![Linux](https://img.shields.io/badge/Compatibility-Linux-important)
+![Linux](https://img.shields.io/badge/Compatibility-Windows-blue)
 
 ## 💥 Features
 
