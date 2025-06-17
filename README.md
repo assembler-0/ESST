@@ -4,6 +4,8 @@
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling.
 
+> **⚠️ Please export CXX=hipcc**
+
 ## ✅ Current version
 
 ![Version](https://img.shields.io/badge/Current%20Version-v0.8-blue)
@@ -43,7 +45,7 @@
 Make sure you have the following installed:
 
 * **CMake** ≥ 4.0
-* **Clang++** ≥ v19 (or compatible modern compiler)
+* **Clang++ (hipcc)** ≥ v19 (or compatible modern compiler)
 * **C++20** standard support
 * **Standard libraries** (libc++, libstdc++, etc.)
 * **NASM** (latest version recommended)
