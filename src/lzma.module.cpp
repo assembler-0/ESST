@@ -186,7 +186,7 @@ public:
                                       this, i, chunk_size, 3);
         }
         
-        // Run for specified duration with progress updates
+        // Run for a specified duration with progress updates
         auto start_time = std::chrono::steady_clock::now();
         for (int elapsed = 0; elapsed < duration_seconds; ++elapsed) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

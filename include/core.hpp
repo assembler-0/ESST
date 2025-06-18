@@ -18,4 +18,5 @@ extern "C" {
     void diskWrite(const char * name);
     void startLZMA(int duration);
     void spawn_system_monitor();
+    void stop_system_monitor();
 }

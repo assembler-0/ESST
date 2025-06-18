@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 4.0)
 project(ESST LANGUAGES C CXX ASM_NASM)
 
 # Build options
@@ -8,7 +8,7 @@ option(BUILD_LIBRARY "Build as static library instead of executable" OFF)
 option(ENABLE_GPU "Enable GPU/ROCm support (requires HIP)" ON)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Compiler flags (common for both CPU and GPU builds)

@@ -45,7 +45,7 @@ private:
     bool has_avx = false, has_avx2 = false, has_fma = false;
     const unsigned int num_threads = std::thread::hardware_concurrency();
 
-    static constexpr auto APP_VERSION = "0.8";
+    static constexpr auto APP_VERSION = "0.8.5";
     static constexpr int AVX_BUFFER_SIZE = 64; // 256 bytes (L1 cache line optimized)
     static constexpr int COLLATZ_BATCH_SIZE = 10000000;
 
@@ -107,6 +107,18 @@ private:
                   << "full  - Combined Full System Stress\n"
                   << "exit  - Exit Program\n\n";
     }
+    std::string formatIPS(double flops) const {
+        if (flops >= 1e9) {
+            return std::to_string(flops / 1e9) + " GIPS";
+        }
+        if (flops >= 1e6) {
+            return std::to_string(flops / 1e6) + " MIPS";
+        }
+        if (flops >= 1e3) {
+            return std::to_string(flops / 1e3) + " KIPS";
+        }
+        return std::to_string(flops) + " IPS";
+    }
     static void initGPUStress (std::optional<int> iterations_o = std::nullopt){
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
@@ -116,6 +128,7 @@ private:
         if (iterations_o.value() == 0) return;
         spawn_system_monitor();
         initGPU(iterations);
+        stop_system_monitor();
 
     }
 
@@ -124,11 +137,12 @@ private:
             std::cout << "Duration (s)?: ";
             if (!(std::cin >> duration_o.emplace())) return;
         }
+        spawn_system_monitor();
         const int duration = duration_o.value();
         if (duration_o.value() == 0) return;
         spawn_system_monitor();
         startLZMA(duration);
-
+        stop_system_monitor();
     }
 
     void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> lower_o = std::nullopt, std::optional<unsigned long> upper_o = std::nullopt) const {
@@ -168,13 +182,13 @@ private:
         std::cout << "\n====== 3n+1 STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
-        std::cout << "===============================\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
+        std::cout << "================================\n";
+        stop_system_monitor();
 
     }
 
@@ -212,17 +226,17 @@ private:
         std::ranges::sort(scores);
         const double median = scores[scores.size() / 2];
 
-        std::cout << "\n====== Primes STRESS SCORE ======\n";
+        std::cout << "\n====== PRIMES STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
-        std::cout << "===============================\n";
-
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
+        std::cout << "==================================\n";
+        stop_system_monitor();
+        
     }
 
     void initAvx(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<float> lower_o = std::nullopt, std::optional<float> upper_o = std::nullopt) const {
@@ -253,22 +267,22 @@ private:
         }
         for (auto& t : threads) t.join();
 
-        double total = std::accumulate(scores.begin(), scores.end(), 0.0);
-        double avg   = total / scores.size();
+        const double total = std::accumulate(scores.begin(), scores.end(), 0.0);
+        const double avg   = total / scores.size();
         std::sort(scores.begin(), scores.end());
         double median = scores[scores.size() / 2];
 
         std::cout << "\n====== AVX STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "===============================\n";
-
+        stop_system_monitor();
+        
     }
 
 
@@ -305,13 +319,14 @@ private:
         std::cout << "\n====== MEM STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(2)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
-        std::cout << "===============================\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
+        std::cout << "=================================\n";
+        stop_system_monitor();
+        
     }
 
     void initAESENC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) const {
@@ -345,13 +360,14 @@ private:
         std::cout << "\n====== AESENC STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "==================================\n";
+        stop_system_monitor();
+        
     }
 
     void initAESDEC(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> blksize_o = std::nullopt) {
@@ -386,13 +402,14 @@ private:
         std::cout << "\n====== AESDEC STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "==================================\n";
+        stop_system_monitor();
+        
     }
 
     void initDiskWrite(std::optional<unsigned long> iterations_o = std::nullopt){
@@ -420,13 +437,14 @@ private:
         std::cout << "\n====== DISK STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(2)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "================================\n";
+        stop_system_monitor();
+        
     }
 
     void initSHA256(std::optional<unsigned long> iterations_o = std::nullopt){
@@ -454,22 +472,23 @@ private:
         std::cout << "\n====== SHA STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(2)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "================================\n";
+        stop_system_monitor();
+        
     }
 
     void nuclearOption() {
         unsigned long intensity = 0;
         std::cout << "Intensity (1 = default): ";
         std::cin >> intensity;
-        std::cout << "Launching full stress test (AVX + Collatz + AES + Mem + Disk)...\n";
-        unsigned long nuke_iterations_avx = 20000000 * intensity;
-        unsigned long nuke_iterations_3np1 = 2000000000 * intensity;
+        std::cout << "Launching full stress test...\n";
+        unsigned long nuke_iterations_avx = 2000000 * intensity;
+        unsigned long nuke_iterations_3np1 = 20000000 * intensity;
         unsigned long nuke_iterations_primes = 1 * intensity;
         unsigned long nuke_iterations_aes = 20 * intensity;
         unsigned long nuke_iterations_disk = 20 * intensity;
@@ -496,6 +515,7 @@ private:
         std::cout << "Full test complete! Time: "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()
                   << " ms\n";
+        stop_system_monitor();
     }
 
     static void pinThread(int core) {
@@ -622,6 +642,7 @@ private:
 
     static double collatzWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
         pinThread(tid);
+        const long instruction_per_threads = 23 * iterations;
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_int_distribution<unsigned long> dist(lower, upper);
 
@@ -643,7 +664,7 @@ private:
         }
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
-        return iterations / elapsed.count();  // it/s
+        return instruction_per_threads / elapsed.count();  // it/s
     }
 
     static double primesWorker(unsigned long iterations, unsigned long lower, unsigned long upper, int tid) {
@@ -674,6 +695,7 @@ private:
 
     static double avxWorker(const unsigned long iterations, const float lower, const float upper, int tid) {
         pinThread(tid);
+        const long instruction_per_threads =  811030 * iterations;
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_real_distribution<float> dist(lower, upper);
 
@@ -695,7 +717,7 @@ private:
         }
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
-        return iterations / elapsed.count();  // it/s
+        return instruction_per_threads / elapsed.count();
     }
     static double diskWriteWorker(unsigned long iterations, int tid){
         pinThread(tid);

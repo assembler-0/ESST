@@ -11,6 +11,7 @@ avx:
         vmovaps ymm2, [rdx]
         
         ; Create dependency chains and varied data patterns
+        ; 13
         vbroadcastss ymm3, dword [rdi]
         vbroadcastss ymm4, dword [rsi+4]
         vbroadcastss ymm5, dword [rdx+8]
