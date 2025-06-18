@@ -8,7 +8,7 @@
 
 ## ✅ Current version
 
-![Version](https://img.shields.io/badge/Current%20Version-v0.8-blue)
+![Version](https://img.shields.io/badge/Current%20Version-v0.8.5-blue)
 
 ## 🐧 Compatibility
 ![Linux](https://img.shields.io/badge/Compatibility-Linux-important)
@@ -29,12 +29,12 @@
 
 ## 🚀 Versions
 
-| Version | Description |
-|---------|-------------|
-| `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full-red) | Maximum system saturation |
-| `esstCLI` ![Full Version](https://img.shields.io/badge/Version-CLI-red) | Maximum system saturation without system monitor |
-| `esstLIB` (Full) ![Old Version](https://img.shields.io/badge/Version-Library-blue) | Static library for ESST (Full) |
-| `esstLIB` (No GPU) ![Old Version](https://img.shields.io/badge/Version-Library%20No%20GPU-blue) | Static library for ESST (No GPU) |
+| Version | Description                                             |
+|---------|---------------------------------------------------------|
+| `esst` (Full) ![Full Version](https://img.shields.io/badge/Version-Full-red) | Maximum system saturation                               |
+| `esstCLI` ![Full Version](https://img.shields.io/badge/Version-CLI-red) | Maximum system saturation without system monitor (V0.8) |
+| `esstLIB` (Full) ![Old Version](https://img.shields.io/badge/Version-Library-blue) | Static library for ESST (Full)                          |
+| `esstLIB` (No GPU) ![Old Version](https://img.shields.io/badge/Version-Library%20No%20GPU-blue) | Static library for ESST (No GPU)                        |
 
 ## 📜 License
 
@@ -46,7 +46,7 @@ Make sure you have the following installed:
 
 * **CMake** ≥ 4.0
 * **Clang++ (hipcc)** ≥ v19 (or compatible modern compiler)
-* **C++20** standard support
+* **C++23** standard support
 * **Standard libraries** (libc++, libstdc++, etc.)
 * **NASM** (latest version recommended)
 * **Make** (or Ninja or any other build system you prefer)
