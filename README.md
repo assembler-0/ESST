@@ -4,7 +4,7 @@
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
 > **Requirements:** Adequate compute power, proper cooling.
 
-> **⚠️ Please export CXX=hipcc**
+> **⚠️ Please export CXX=hipcc when compiling**
 
 ## ✅ Current version
 
