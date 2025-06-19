@@ -15,4 +15,4 @@ cmake-build-debug
 .idea
 build-lite
 obj
-autobuild
+*.exe
