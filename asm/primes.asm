@@ -29,7 +29,6 @@ primes:
 
 .start_factorization:
     mov r12, rdi                    ; Number to factor
-    mov r13, 2                      ; Current potential factor
 
 .factorization_loop:
     ; === TRIAL DIVISION WITH EXTREME OPTIMIZATION RESISTANCE ===

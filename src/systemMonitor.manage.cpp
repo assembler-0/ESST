@@ -165,8 +165,7 @@ class Monitor {
             ImGui::TableNextColumn();
             ImGui::TextDisabled("SYS");
             ImGui::Text("ACTIVE");
-            ImGui::TextColored({0.2f, 0.8f, 0.2f, 1.0f}, "◉ ONLINE");
-
+            ImGui::TextColored({0.2f, 0.8f, 0.2f, 1.0f}, "ONLINE");
             ImGui::EndTable();
         }
 
