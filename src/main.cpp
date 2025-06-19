@@ -132,6 +132,19 @@ private:
                   << "exit  - Exit Program\n\n";
     }
 
+    std::string formatIPS(double flops) const {
+        if (flops >= 1e9) {
+            return std::to_string(flops / 1e9) + " GIPS";
+        }
+        if (flops >= 1e6) {
+            return std::to_string(flops / 1e6) + " MIPS";
+        }
+        if (flops >= 1e3) {
+            return std::to_string(flops / 1e3) + " KIPS";
+        }
+        return std::to_string(flops) + " IPS";
+    }
+
     void init3np1(std::optional<unsigned long> iterations_o = std::nullopt, std::optional<unsigned long> lower_o = std::nullopt, std::optional<unsigned long> upper_o = std::nullopt) const {
         if (!iterations_o.has_value()) {
             std::cout << "Iterations?: ";
@@ -262,12 +275,11 @@ private:
         std::cout << "\n====== AVX STRESS SCORE ======\n";
         for (size_t i = 0; i < scores.size(); ++i) {
             std::cout << "Thread " << i << ": "
-                      << std::fixed << std::setprecision(0)
-                      << scores[i] << " it/s\n";
+                      << formatIPS(scores[i]) << "\n";
         }
         std::cout << "-------------------------------\n";
-        std::cout << "Avg:    " << avg << " it/s\n";
-        std::cout << "Median: " << median << " it/s\n";
+        std::cout << "Avg:    " << formatIPS(avg) << "\n";
+        std::cout << "Median: " << formatIPS(median) << "\n";
         std::cout << "===============================\n";
 
     }
@@ -691,6 +703,7 @@ private:
 
     static double avxWorker(const unsigned long iterations, const float lower, const float upper, int tid) {
         pinThread(tid);
+        const long instructions = 1015836 * iterations;
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_real_distribution<float> dist(lower, upper);
 
@@ -712,7 +725,7 @@ private:
         }
         const auto end = std::chrono::high_resolution_clock::now();
         const std::chrono::duration<double> elapsed = end - start;
-        return iterations / elapsed.count();  // it/s
+        return instructions / elapsed.count();  // it/s
     }
 
     static double diskWriteWorker(unsigned long iterations, int tid){
