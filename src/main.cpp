@@ -695,7 +695,7 @@ private:
 
     static double avxWorker(const unsigned long iterations, const float lower, const float upper, int tid) {
         pinThread(tid);
-        const long instruction_per_threads =  811030 * iterations;
+        const long instruction_per_threads =  999448 * iterations;
         pcg32 gen(42u + tid, 54u + tid);
         std::uniform_real_distribution<float> dist(lower, upper);
 
