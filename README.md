@@ -1,4 +1,4 @@
-# ESST (Extreme System Stability Tester) 
+# ESST (Extreme System Stability Tester) -- DEPRECATED -- Please use ![SIFT](https://github.com/assembler-0/SIFT)
 
 > ⚠️ **WARNING: POTENTIAL HARDWARE DAMAGE**  
 > This tool can cause system instability, crashes, data loss, and permanent hardware damage from overheating.  
